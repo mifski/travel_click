@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+ <meta charset="utf-8" />
+ <title>TravelClick - Travel Place Extractor</title>
+ <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<div class="container">
+ <h1>TravelClick</h1>
+ <p>Paste an Instagram or TikTok URL and extract travel place details using Claude.</p>
+
+ <form id="extract-form">
+ <label for="url">Video URL</label>
+ <input type="url" id="url" name="url" placeholder="https://www.instagram.com/reel/..." required />
+
+ <label for="caption">Optional caption override</label>
+ <textarea id="caption" name="caption" rows="3" placeholder="Paste caption / notes here (optional)"></textarea>
+
+ <button type="submit">Extract</button>
+ <span id="loading" style="display:none; margin-left:8px;">Processing... may take10–15 seconds.</span>
+ </form>
+
+ <hr />
+
+ <div class="filters">
+ <label for="filter-country">Filter by country:</label>
+ <select id="filter-country"></select>
+
+ <label for="filter-category">Filter by category:</label>
+ <select id="filter-category"></select>
+
+ <button id="apply-filters">Apply</button>
+ </div>
+
+ <div id="places-container" class="cards"></div>
+</div>
+
+<script>
+const apiBase = '/api';
+
+async function fetchPlaces(params = {}) {
+ const qs = new URLSearchParams(params).toString();
+ const res = await fetch(`${apiBase}/places${qs ? '?' + qs : ''}`);
+ if (!res.ok) throw new Error('Failed to load places');
+ return await res.json();
+}
+
+function renderPlaces(places) {
+ const container = document.getElementById('places-container');
+ container.innerHTML = '';
+
+ if (!places.length) {
+ container.innerHTML = '<p>No places yet. Add one using the form above.</p>';
+ return;
+ }
+
+ const countries = new Set();
+ const categories = new Set();
+
+ places.forEach(p => {
+ if (p.country) countries.add(p.country);
+ if (p.categoryTags) {
+ p.categoryTags.split(',').forEach(t => { if (t.trim()) categories.add(t.trim()); });
+ }
+ });
+
+ populateFilters(Array.from(countries).sort(), Array.from(categories).sort());
+
+ for (const p of places) {
+ const card = document.createElement('div');
+ card.className = 'card';
+
+ const localId = `local-${p.id}`;
+ const tagsHtml = (p.categoryTags || '').split(',').filter(t => t.trim()).map(t => `<span class="tag">${t}</span>`).join(' ');
+
+ card.innerHTML = `
+ <h2>${p.locationNameEnglish || 'Unknown'}</h2>
+ ${p.locationNameLocal ? `
+ <div class="local-name">
+ <span id="${localId}">${p.locationNameLocal}</span>
+ <button type="button" data-copy="${localId}">Copy local name</button>
+ </div>` : ''}
+ <p class="location">${[p.city, p.country].filter(Boolean).join(', ')}</p>
+ ${tagsHtml ? `<p class="tags">${tagsHtml}</p>` : ''}
+ <p class="description">${p.description || ''}</p>
+ <p class="meta">
+ Confidence: <span class="confidence ${p.locationConfidence?.toLowerCase()}">${p.locationConfidence}</span>
+ ${p.locationConfidence === 'low' ? '<span class="warning">Location uncertain</span>' : ''}
+ </p>
+ <p class="meta"><a href="${p.sourceUrl}" target="_blank" rel="noopener noreferrer">Open original</a></p>
+ <p class="meta small">Added: ${p.dateAdded}</p>
+ `;
+
+ card.querySelectorAll('button[data-copy]').forEach(btn => {
+ btn.addEventListener('click', () => {
+ const id = btn.getAttribute('data-copy');
+ const el = document.getElementById(id);
+ if (!el) return;
+ const text = el.textContent || el.innerText;
+ if (navigator.clipboard?.writeText) {
+ navigator.clipboard.writeText(text);
+ } else {
+ const ta = document.createElement('textarea');
+ ta.value = text;
+ document.body.appendChild(ta);
+ ta.select();
+ document.execCommand('copy');
+ document.body.removeChild(ta);
+ }
+ });
+ });
+
+ container.appendChild(card);
+ }
+}
+
+function populateFilters(countries, categories) {
+ const countrySelect = document.getElementById('filter-country');
+ const categorySelect = document.getElementById('filter-category');
+
+ if (!countrySelect.options.length) {
+ const opt = document.createElement('option');
+ opt.value = '';
+ opt.textContent = 'All';
+ countrySelect.appendChild(opt);
+ }
+ if (!categorySelect.options.length) {
+ const opt2 = document.createElement('option');
+ opt2.value = '';
+ opt2.textContent = 'All';
+ categorySelect.appendChild(opt2);
+ }
+
+ countries.forEach(c => {
+ if (![...countrySelect.options].some(o => o.value === c)) {
+ const o = document.createElement('option');
+ o.value = c;
+ o.textContent = c;
+ countrySelect.appendChild(o);
+ }
+ });
+
+ categories.forEach(cat => {
+ if (![...categorySelect.options].some(o => o.value === cat)) {
+ const o = document.createElement('option');
+ o.value = cat;
+ o.textContent = cat;
+ categorySelect.appendChild(o);
+ }
+ });
+}
+
+async function loadPlacesWithFilters() {
+ const country = document.getElementById('filter-country').value;
+ const category = document.getElementById('filter-category').value;
+ const params = {};
+ if (country) params.country = country;
+ if (category) params.category = category;
+ const places = await fetchPlaces(params);
+ renderPlaces(places);
+}
+
+async function init() {
+ try {
+ const places = await fetchPlaces();
+ renderPlaces(places);
+ } catch (e) {
+ console.error(e);
+ document.getElementById('places-container').innerHTML = '<p>Error loading places.</p>';
+ }
+
+ document.getElementById('apply-filters').addEventListener('click', (e) => {
+ e.preventDefault();
+ loadPlacesWithFilters();
+ });
+
+ const form = document.getElementById('extract-form');
+ const loading = document.getElementById('loading');
+
+ form.addEventListener('submit', async (e) => {
+ e.preventDefault();
+ loading.style.display = 'inline';
+
+ const url = document.getElementById('url').value.trim();
+ const caption = document.getElementById('caption').value.trim();
+
+ try {
+ const res = await fetch(`${apiBase}/extract`, {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ url, manualCaption: caption })
+ });
+ if (!res.ok) {
+ const text = await res.text();
+ alert('Error: ' + text);
+ } else {
+ await loadPlacesWithFilters();
+ form.reset();
+ }
+ } catch (err) {
+ console.error(err);
+ alert('Error processing URL');
+ } finally {
+ loading.style.display = 'none';
+ }
+ });
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# .NET build output
+bin/
+obj/
+*.user
+.vs/
+
+# Local database + runtime artifacts
+places.db
+places.db-*
+wwwroot/uploads/
+
+# Python tooling
+.venv/
+__pycache__/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Secrets
+appsettings.*.Local.json
+.env
+.env.*
+!.env.example
