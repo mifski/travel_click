@@ -130,6 +130,35 @@ const TAG_MAP: Record<string, string> = {
   hotel: 'accommodation', hostel: 'accommodation', resort: 'accommodation', accommodation: 'accommodation',
 }
 
+/* ── Luggage-tag filter chips — categories fold into five broad groups ── */
+export interface ChipGroup {
+  key: string
+  label: string
+  color: string
+  /** idle chip resting tilt, degrees */
+  rotation: number
+}
+
+export const CHIP_GROUPS: ChipGroup[] = [
+  { key: 'culture',   label: 'CULTURE',   color: '#c94040', rotation: -1 },
+  { key: 'food',      label: 'FOOD',      color: '#a86030', rotation: 1 },
+  { key: 'nature',    label: 'NATURE',    color: '#6b8f5e', rotation: -1 },
+  { key: 'nightlife', label: 'NIGHTLIFE', color: '#c9a84c', rotation: 1.5 },
+  { key: 'landmarks', label: 'LANDMARKS', color: '#7e9ab5', rotation: -1 },
+]
+
+const CATEGORY_TO_GROUP: Record<string, string> = {
+  culture: 'culture', spiritual: 'culture',
+  cafe: 'food', restaurant: 'food', streetfood: 'food', market: 'food',
+  nature: 'nature', beach: 'nature',
+  nightlife: 'nightlife',
+  shopping: 'landmarks', wellness: 'landmarks', accommodation: 'landmarks', other: 'landmarks',
+}
+
+export function getChipGroup(categoryKey: string): string {
+  return CATEGORY_TO_GROUP[categoryKey] ?? 'landmarks'
+}
+
 export function getCategoryFromTags(tags: string[]): CategoryInfo {
   const lower = tags.map(t => t.toLowerCase().trim())
   for (const tag of lower) {

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Plane, Plus, MapPin, Calendar, Users, Loader2,
+  Plus, MapPin, Calendar, Users, Loader2,
   Trash2, ChevronRight, BookOpen, User, AlertTriangle, Scale
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
@@ -110,7 +110,7 @@ export default function BoardsPage() {
   }
 
   if (loading || !user) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#f5f0e8' }}>
+    <div className="scrapbook-bg min-h-screen flex items-center justify-center">
       <Loader2 className="animate-spin text-[#c94040]" size={28} />
     </div>
   )
@@ -124,15 +124,13 @@ export default function BoardsPage() {
     : true
 
   return (
-    <div className="min-h-screen" style={{ background: '#f5f0e8' }}>
+    <div className="scrapbook-bg min-h-screen">
       {/* Header */}
-      <header className="bg-white/70 backdrop-blur-md border-b border-amber-200/60 px-5 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-md" style={{ background: 'linear-gradient(135deg, #c94040, #e05555)' }}>
-            <Plane size={15} className="text-white" />
-          </div>
-          <span className="font-bold text-[#2c1810]" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>TravelClick</span>
-        </div>
+      <header className="px-6 sm:px-10 py-4 flex items-center justify-between"
+        style={{ background: 'rgba(233,223,205,.85)', backdropFilter: 'blur(8px)' }}>
+        <span className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
+          TravelClick<span style={{ color: '#c94040' }}>.</span>
+        </span>
         <div className="flex items-center gap-3">
           <Link href="/profile" className="flex items-center gap-2 group">
             {profile?.avatar_url ? (
@@ -153,10 +151,16 @@ export default function BoardsPage() {
       <div className="max-w-4xl mx-auto px-5 py-8">
         {/* Greeting */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#2c1810]" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>
-            Your Boards{profile?.display_name ? `, ${profile.display_name.split(' ')[0]}` : ''}
+          <div className="flex items-center gap-3 mb-1.5">
+            <span className="uppercase font-semibold" style={{ fontSize: 11, letterSpacing: '.22em', color: '#c94040' }}>
+              Your boards
+            </span>
+            <span style={{ height: 1, width: 48, background: 'rgba(201,64,64,.4)' }} />
+          </div>
+          <h1 className="font-display text-4xl italic" style={{ fontWeight: 800, color: '#2c1810', letterSpacing: '-.02em' }}>
+            {profile?.display_name ? `Welcome back, ${profile.display_name.split(' ')[0]}` : 'Every trip, one scrapbook'}
           </h1>
-          <p className="text-amber-800/50 mt-1">Every trip, every memory — all in one place</p>
+          <p className="mt-1.5" style={{ color: 'rgba(44,24,16,.5)' }}>Every trip, every memory — all in one place</p>
         </div>
 
         {/* New trip + decide buttons */}
@@ -168,7 +172,7 @@ export default function BoardsPage() {
             </div>
             <div className="text-left">
               <p className="text-[#2c1810] font-bold">Plan a new trip</p>
-              <p className="text-amber-800/50 text-sm">Create a corkboard for your next adventure</p>
+              <p className="text-amber-800/50 text-sm">Start a scrapbook for your next adventure</p>
             </div>
           </button>
           <Link href="/decide"
@@ -203,9 +207,10 @@ export default function BoardsPage() {
               return (
                 <motion.div key={trip.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.06 }}
-                  className="group bg-white/70 border border-amber-200 rounded-2xl overflow-hidden hover:border-[#c94040]/40 hover:shadow-md transition-all shadow-sm">
-                  {/* Card top — cork strip */}
-                  <div className="h-2 cork-bg" />
+                  className="group overflow-hidden transition-all hover:-translate-y-1"
+                  style={{ background: '#fffef9', boxShadow: '0 2px 3px rgba(44,24,16,.12), 0 16px 36px -8px rgba(44,24,16,.25)' }}>
+                  {/* Card top — boarding-pass strip */}
+                  <div className="h-2" style={{ background: 'linear-gradient(90deg, #c94040, #c9a84c)' }} />
                   <div className="p-5">
                     <div className="flex items-start justify-between mb-3">
                       <div>
@@ -244,13 +249,13 @@ export default function BoardsPage() {
                       <span className="text-amber-800/35 text-xs">{pinCount} pin{pinCount !== 1 ? 's' : ''}</span>
                       <div className="flex gap-2">
                         <Link href={`/board/${trip.id}/itinerary`}
-                          className="flex items-center gap-1 px-3 py-1.5 border border-amber-200 rounded-lg text-xs text-amber-700 hover:text-amber-900 hover:border-amber-300 transition-colors">
-                          <BookOpen size={11} /> Itinerary
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-colors"
+                          style={{ border: '1px solid rgba(44,24,16,.18)', color: 'rgba(44,24,16,.6)' }}>
+                          <BookOpen size={11} /> Binder
                         </Link>
                         <Link href={`/board/${trip.id}`}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs text-white font-bold transition-all hover:opacity-90"
-                          style={{ background: 'linear-gradient(135deg, #c94040, #e05555)' }}>
-                          Open Board <ChevronRight size={11} />
+                          className="pill-coral pill-lift flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold">
+                          Open board <ChevronRight size={11} />
                         </Link>
                       </div>
                     </div>
@@ -390,16 +395,14 @@ export default function BoardsPage() {
                 </button>
                 {wizardStep < WIZARD_STEPS.length - 1 ? (
                   <button onClick={() => canNext && setWizardStep(s => s + 1)} disabled={!canNext}
-                    className="px-6 py-2.5 text-white rounded-xl font-bold text-sm transition-all disabled:opacity-40 hover:opacity-90"
-                    style={{ background: 'linear-gradient(135deg, #c94040, #e05555)' }}>
+                    className="pill-coral pill-lift px-6 py-2.5 rounded-full font-bold text-sm disabled:opacity-40">
                     Continue →
                   </button>
                 ) : (
                   <button onClick={handleCreateTrip} disabled={creating}
-                    className="px-6 py-2.5 text-white rounded-xl font-bold text-sm transition-all disabled:opacity-60 flex items-center gap-2 hover:opacity-90"
-                    style={{ background: 'linear-gradient(135deg, #c94040, #e05555)' }}>
+                    className="pill-coral pill-lift px-6 py-2.5 rounded-full font-bold text-sm disabled:opacity-60 flex items-center gap-2">
                     {creating && <Loader2 size={14} className="animate-spin" />}
-                    Create Board ✈️
+                    Create board ✈️
                   </button>
                 )}
               </div>

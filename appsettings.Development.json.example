@@ -1,0 +1,12 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "Claude": {
+    "ApiKey": "sk-ant-api03-YOUR-KEY-HERE",
+    "Model": "claude-sonnet-4-6"
+  }
+}

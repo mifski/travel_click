@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSourceFromUrl, isYouTubeUrl } from '@/lib/utils'
+import { rateLimit, clamp } from '@/lib/api-guard'
 
 const BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:5107'
+const BACKEND_API_KEY = process.env.BACKEND_API_KEY
 
 async function fetchYouTubeMetadata(url: string) {
   const match = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
@@ -28,10 +30,20 @@ async function fetchPlaceImage(name: string, city: string, country: string): Pro
 }
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, 'extract', 12)
+  if (limited) return limited
+
   const body = await req.json()
-  const { url, manualCaption } = body
+  const url = clamp(body.url, 500)
+  const manualCaption = body.manualCaption ? clamp(body.manualCaption, 1000) : undefined
 
   if (!url) return NextResponse.json({ error: 'URL required' }, { status: 400 })
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error()
+  } catch {
+    return NextResponse.json({ error: 'That doesn’t look like a valid link' }, { status: 400 })
+  }
 
   const source = getSourceFromUrl(url)
 
@@ -58,7 +70,10 @@ export async function POST(req: NextRequest) {
   try {
     const backendRes = await fetch(`${BACKEND_URL}/api/extract`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(BACKEND_API_KEY ? { 'X-Api-Key': BACKEND_API_KEY } : {}),
+      },
       body: JSON.stringify({ url, manualCaption }),
       signal: AbortSignal.timeout(300000),
     })

@@ -13,23 +13,12 @@ export function randomInRange(min: number, max: number): number {
   return Math.random() * (max - min) + min
 }
 
-export function generatePinPosition(
-  index: number,
-  total: number,
-  containerWidth = 1200,
-  containerHeight = 800
-): { x: number; y: number; rotation: number } {
-  const cols = Math.ceil(Math.sqrt(total))
-  const col = index % cols
-  const row = Math.floor(index / cols)
-  const cellW = containerWidth / cols
-  const cellH = containerHeight / Math.ceil(total / cols)
-
-  return {
-    x: col * cellW + cellW * 0.15 + randomInRange(0, cellW * 0.5),
-    y: row * cellH + cellH * 0.15 + randomInRange(0, cellH * 0.4),
-    rotation: randomInRange(-6, 6),
-  }
+/**
+ * Cards flow in masonry columns — the stored position is a drag *offset* on
+ * top of the column slot, so new cards start unmoved with a scrapbook tilt.
+ */
+export function generatePinPosition(): { x: number; y: number; rotation: number } {
+  return { x: 0, y: 0, rotation: randomInRange(-2.5, 3) }
 }
 
 export function formatDate(dateStr: string): string {
@@ -38,6 +27,17 @@ export function formatDate(dateStr: string): string {
     day: 'numeric',
     year: 'numeric',
   })
+}
+
+/** "OCT 12 – 15" within one month, "OCT 12 – NOV 2" across months */
+export function formatDateRange(start: string, end: string): string {
+  const s = new Date(start)
+  const e = new Date(end)
+  const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()
+  if (s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear()) {
+    return `${fmt(s)} – ${e.getDate()}`
+  }
+  return `${fmt(s)} – ${fmt(e)}`
 }
 
 export function getDayCount(start: string, end: string): number {
@@ -81,9 +81,14 @@ export function isInstagramUrl(url: string): boolean {
   return /instagram\.com/.test(url)
 }
 
+export function isXiaohongshuUrl(url: string): boolean {
+  return /xiaohongshu\.com|xhslink\.com/.test(url)
+}
+
 export function getSourceFromUrl(url: string): import('./types').CardSource {
   if (isYouTubeUrl(url)) return 'youtube'
   if (isTikTokUrl(url)) return 'tiktok'
   if (isInstagramUrl(url)) return 'instagram'
+  if (isXiaohongshuUrl(url)) return 'xiaohongshu'
   return 'article'
 }

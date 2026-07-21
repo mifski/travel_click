@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plane, Eye, EyeOff, ChevronRight, ChevronLeft, Check } from 'lucide-react'
+import { Eye, EyeOff, ChevronRight, ChevronLeft, Check } from 'lucide-react'
 import { supabase, upsertProfile, uploadAvatar } from '@/lib/supabase'
 import { OTPInput } from '@/components/Auth/OTPInput'
 import { AvatarUpload } from '@/components/Auth/AvatarUpload'
@@ -39,6 +39,7 @@ export default function SignupPage() {
   const [password, setPassword]       = useState('')
   const [confirmPw, setConfirmPw]     = useState('')
   const [otp, setOtp]                 = useState('')
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent'>('idle')
   const [avatarFile, setAvatarFile]   = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
 
@@ -66,7 +67,10 @@ export default function SignupPage() {
       if (error) throw error
       go(3) // OTP step
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Signup failed')
+      const msg = e instanceof Error ? e.message : 'Signup failed'
+      setError(msg === 'Failed to fetch'
+        ? 'Could not reach Supabase — the project may still be waking up. Wait 1–2 min and try again.'
+        : msg)
     } finally { setLoading(false) }
   }
 
@@ -113,14 +117,11 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-10" style={{ background: '#f5f0e8' }}>
+    <div className="scrapbook-bg min-h-screen flex flex-col items-center justify-center px-4 py-10">
 
       {/* Logo */}
-      <Link href="/" className="flex items-center gap-2 mb-8">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-md" style={{ background: 'linear-gradient(135deg, #c94040, #e05555)' }}>
-          <Plane size={17} className="text-white" />
-        </div>
-        <span className="font-bold text-[#2c1810] text-lg" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>TravelClick</span>
+      <Link href="/" className="font-display mb-8" style={{ fontWeight: 800, fontSize: 20, color: '#2c1810', letterSpacing: '-.02em' }}>
+        TravelClick<span style={{ color: '#c94040' }}>.</span>
       </Link>
 
       {/* Step bar */}
@@ -142,7 +143,8 @@ export default function SignupPage() {
       </div>
 
       {/* Card */}
-      <div className="w-full max-w-sm bg-[#fffef9] border border-amber-200 rounded-3xl p-8 overflow-hidden relative min-h-[340px] shadow-xl">
+      <div className="w-full max-w-sm p-8 overflow-hidden relative min-h-[340px]"
+        style={{ background: '#fffef9', borderRadius: 16, boxShadow: '0 2px 3px rgba(44,24,16,.12), 0 30px 60px -12px rgba(44,24,16,.3)' }}>
         <AnimatePresence custom={direction} mode="wait">
           <motion.div key={step} custom={direction} variants={slide}
             initial="enter" animate="center" exit="exit"
@@ -242,9 +244,16 @@ export default function SignupPage() {
                   <span className="text-[#c94040] font-semibold">{email}</span>
                 </p>
                 <OTPInput value={otp} onChange={setOtp} />
-                <button onClick={() => supabase.auth.resend({ type: 'signup', email })}
-                  className="text-xs text-amber-800/40 hover:text-[#c94040] transition-colors mt-4 block mx-auto">
-                  Resend code
+                <button
+                  disabled={resendStatus !== 'idle'}
+                  onClick={async () => {
+                    setResendStatus('sending')
+                    const { error } = await supabase.auth.resend({ type: 'signup', email })
+                    if (error) { setError(error.message); setResendStatus('idle') }
+                    else { setResendStatus('sent'); setTimeout(() => setResendStatus('idle'), 30000) }
+                  }}
+                  className="text-xs text-amber-800/40 hover:text-[#c94040] disabled:opacity-50 transition-colors mt-4 block mx-auto">
+                  {resendStatus === 'sending' ? 'Sending…' : resendStatus === 'sent' ? 'Code sent!' : 'Resend code'}
                 </button>
               </div>
             )}
@@ -263,7 +272,7 @@ export default function SignupPage() {
         </AnimatePresence>
 
         {error && (
-          <p className="text-red-600 text-xs text-center mt-3 absolute bottom-[72px] left-8 right-8">{error}</p>
+          <p className="text-red-600 text-xs text-center mt-4">{error}</p>
         )}
       </div>
 
@@ -304,12 +313,11 @@ const inputCls = 'w-full bg-amber-50/60 border border-amber-200 rounded-xl px-4 
 
 function NavBtn({ onClick, label, loading }: { onClick: () => void; label: string; loading?: boolean }) {
   return (
-    <motion.button onClick={onClick} disabled={loading} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-      className="flex items-center gap-2 px-6 py-3 text-white rounded-2xl font-bold text-sm transition-all disabled:opacity-60 shadow-lg hover:opacity-90"
-      style={{ background: 'linear-gradient(135deg, #c94040, #e05555)', boxShadow: '0 6px 20px rgba(201,64,64,0.25)' }}>
-      {loading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
+    <button onClick={onClick} disabled={loading}
+      className="pill-coral pill-lift flex items-center gap-2 px-6 py-3 rounded-full font-bold text-sm disabled:opacity-60">
+      {loading ? <span className="tc-spinner w-4 h-4" style={{ border: '2px solid rgba(255,255,255,.3)', borderTopColor: '#fff' }} /> : null}
       {label}
       {!loading && <ChevronRight size={15} />}
-    </motion.button>
+    </button>
   )
 }

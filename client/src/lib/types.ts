@@ -11,7 +11,7 @@ export type TripObjective =
   | 'romance'
   | 'budget'
 export type PriceRange = 'budget' | 'mid' | 'luxury'
-export type CardSource = 'youtube' | 'tiktok' | 'instagram' | 'article' | 'ai' | 'manual'
+export type CardSource = 'youtube' | 'tiktok' | 'instagram' | 'xiaohongshu' | 'article' | 'ai' | 'manual'
 
 export interface TripContext {
   id: string

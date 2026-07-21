@@ -12,7 +12,7 @@ interface Props {
 export function OTPInput({ value, onChange, length = 6 }: Props) {
   const inputs = useRef<(HTMLInputElement | null)[]>([])
 
-  const digits = value.padEnd(length, '').split('').slice(0, length)
+  const digits = Array.from({ length }, (_, i) => value[i] ?? '')
 
   function handleChange(idx: number, char: string) {
     const digit = char.replace(/\D/g, '').slice(-1)
@@ -42,7 +42,7 @@ export function OTPInput({ value, onChange, length = 6 }: Props) {
   }
 
   return (
-    <div className="flex gap-3 justify-center">
+    <div className="flex gap-2 justify-center">
       {digits.map((digit, idx) => (
         <input
           key={idx}
@@ -57,7 +57,7 @@ export function OTPInput({ value, onChange, length = 6 }: Props) {
           onFocus={(e) => e.target.select()}
           aria-label={`Digit ${idx + 1} of ${length}`}
           className={cn(
-            'w-12 h-14 text-center text-xl font-bold rounded-xl border-2 transition-all outline-none',
+            'w-10 h-12 text-center text-lg font-bold rounded-xl border-2 transition-all outline-none',
             'bg-white text-[#2c1810]',
             digit
               ? 'border-[#c94040] bg-[#c94040]/5'

@@ -40,7 +40,7 @@ const DEMO_CARD_SEEDS: DemoCardSeed[] = [
     confidence: 'high',
     sourceUrl: 'https://www.tiktok.com/',
     creator: 'tokyo.wanders',
-    pinPosition: { x: 36, y: 40, rotation: -3.5 },
+    pinPosition: { x: 0, y: 0, rotation: -2 },
   },
   {
     source: 'youtube',
@@ -52,7 +52,7 @@ const DEMO_CARD_SEEDS: DemoCardSeed[] = [
     confidence: 'high',
     sourceUrl: 'https://www.youtube.com/',
     creator: 'WanderTokyo',
-    pinPosition: { x: 300, y: 96, rotation: 2.5 },
+    pinPosition: { x: 0, y: 0, rotation: 1 },
   },
   {
     source: 'instagram',
@@ -64,7 +64,7 @@ const DEMO_CARD_SEEDS: DemoCardSeed[] = [
     confidence: 'high',
     sourceUrl: 'https://www.instagram.com/',
     creator: 'japan.frames',
-    pinPosition: { x: 560, y: 36, rotation: -2 },
+    pinPosition: { x: 0, y: 0, rotation: 2 },
   },
   {
     source: 'article',
@@ -75,7 +75,7 @@ const DEMO_CARD_SEEDS: DemoCardSeed[] = [
     tags: ['landmark', 'architecture'],
     confidence: 'high',
     sourceUrl: 'https://www.japan-guide.com/e/e3064.html',
-    pinPosition: { x: 820, y: 90, rotation: 3 },
+    pinPosition: { x: 0, y: 0, rotation: 3 },
   },
   {
     source: 'tiktok',
@@ -87,7 +87,7 @@ const DEMO_CARD_SEEDS: DemoCardSeed[] = [
     confidence: 'medium',
     sourceUrl: 'https://www.tiktok.com/',
     creator: 'nightcity.jp',
-    pinPosition: { x: 96, y: 330, rotation: 4 },
+    pinPosition: { x: 0, y: 0, rotation: 1.5 },
   },
   {
     source: 'youtube',
@@ -98,7 +98,7 @@ const DEMO_CARD_SEEDS: DemoCardSeed[] = [
     confidence: 'high',
     sourceUrl: 'https://www.youtube.com/',
     creator: 'EatsOfJapan',
-    pinPosition: { x: 360, y: 370, rotation: -4 },
+    pinPosition: { x: 0, y: 0, rotation: -1.5 },
   },
   {
     source: 'instagram',
@@ -110,7 +110,7 @@ const DEMO_CARD_SEEDS: DemoCardSeed[] = [
     confidence: 'high',
     sourceUrl: 'https://www.instagram.com/',
     creator: 'slowtravel.tokyo',
-    pinPosition: { x: 620, y: 320, rotation: 2 },
+    pinPosition: { x: 0, y: 0, rotation: 2 },
   },
   {
     source: 'ai',
@@ -120,7 +120,7 @@ const DEMO_CARD_SEEDS: DemoCardSeed[] = [
     imageUrl: wiki('6/60/Sotokanda%2C_Akihabara_Electric_Town_at_night_20231114.png/330px-Sotokanda%2C_Akihabara_Electric_Town_at_night_20231114.png'),
     tags: ['shopping', 'arcade'],
     confidence: 'medium',
-    pinPosition: { x: 868, y: 360, rotation: -2.5 },
+    pinPosition: { x: 0, y: 0, rotation: -1 },
   },
   {
     source: 'article',
@@ -131,7 +131,7 @@ const DEMO_CARD_SEEDS: DemoCardSeed[] = [
     tags: ['museum', 'culture', 'art'],
     confidence: 'high',
     sourceUrl: 'https://www.ghibli-museum.jp/en/',
-    pinPosition: { x: 1090, y: 70, rotation: 3.5 },
+    pinPosition: { x: 0, y: 0, rotation: -1.5 },
   },
 ]
 
@@ -151,7 +151,7 @@ export function buildDemoNote(): StickyNote {
     tripId: DEMO_TRIP_ID,
     text: 'Get a Suica card at the airport! 🚆\nCash for Golden Gai bars',
     color: 'yellow',
-    position: { x: 1110, y: 330, rotation: 5 },
+    position: { x: 700, y: 660, rotation: 2 },
     createdAt: new Date().toISOString(),
   }
 }

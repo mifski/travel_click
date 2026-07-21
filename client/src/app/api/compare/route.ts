@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import type { DestinationScore, TempPreference } from '@/lib/types'
+import { rateLimit, clamp, clampInt } from '@/lib/api-guard'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -14,15 +15,24 @@ interface CompareBody {
 }
 
 export async function POST(req: NextRequest) {
-  const body: CompareBody = await req.json()
-  const { candidates, months, tempPref, priorities, travelerNote, paxCount } = body
+  const limited = rateLimit(req, 'compare', 8)
+  if (limited) return limited
 
-  if (!candidates?.length || candidates.length < 2 || candidates.length > 4) {
+  const body: CompareBody = await req.json()
+  const tempPref: TempPreference = ['cold', 'mild', 'warm', 'any'].includes(body.tempPref) ? body.tempPref : 'any'
+
+  if (!body.candidates?.length || body.candidates.length < 2 || body.candidates.length > 4) {
     return NextResponse.json({ error: 'Provide 2–4 candidate destinations' }, { status: 400 })
   }
-  if (!months?.length || months.length > 3) {
+  if (!body.months?.length || body.months.length > 3) {
     return NextResponse.json({ error: 'Provide 1–3 candidate months' }, { status: 400 })
   }
+
+  const candidates = body.candidates.map((c) => clamp(c, 60))
+  const months = body.months.map((m) => clamp(m, 20))
+  const priorities = (Array.isArray(body.priorities) ? body.priorities : []).slice(0, 8).map((p) => clamp(p, 30))
+  const travelerNote = body.travelerNote ? clamp(body.travelerNote, 600) : undefined
+  const paxCount = clampInt(body.paxCount, 1, 20)
 
   const now = new Date()
   const tempDesc: Record<TempPreference, string> = {

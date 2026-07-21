@@ -53,27 +53,24 @@ export function AccommodationCards({ trip }: Props) {
   }
 
   return (
-    <div className="bg-white/80 backdrop-blur-sm border border-amber-200 rounded-2xl p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Sparkles size={16} className="text-[#c94040]" />
-          <h3 className="font-bold text-[#2c1810] text-sm">AI Accommodation Picks</h3>
-        </div>
+    <div>
+      <div className="flex items-center justify-between mb-4 gap-3">
+        <span className="uppercase font-semibold" style={{ fontSize: 11, letterSpacing: '.18em', color: '#c94040' }}>
+          AI-curated picks for {trip.destination}
+        </span>
         <button
           onClick={fetchSuggestions}
           disabled={loading}
           className={cn(
-            'px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all',
-            loading
-              ? 'bg-amber-100 text-amber-400 cursor-not-allowed'
-              : fetched
-              ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
-              : 'text-white shadow-md hover:opacity-90'
+            'rounded-full text-sm font-semibold flex items-center gap-2 disabled:opacity-60',
+            fetched && !loading ? 'transition-colors hover:text-[#2c1810]' : 'pill-coral pill-lift'
           )}
-          style={!loading && !fetched ? { background: 'linear-gradient(135deg, #c94040, #e05555)' } : {}}
+          style={fetched && !loading
+            ? { padding: '9px 18px', border: '1px solid rgba(44,24,16,.18)', color: 'rgba(44,24,16,.6)' }
+            : { padding: '9px 18px' }}
         >
           {loading && <Loader2 size={14} className="animate-spin" />}
-          {loading ? 'Finding…' : fetched ? 'Refresh' : 'Find Stays'}
+          {loading ? 'Finding…' : fetched ? '↻ Refresh' : '✦ Find stays'}
         </button>
       </div>
 
@@ -91,7 +88,8 @@ export function AccommodationCards({ trip }: Props) {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.08 }}
-                className="bg-[#fffef9] border border-amber-200 rounded-xl p-4 hover:border-[#c94040]/40 hover:shadow-md transition-all shadow-sm"
+                className="p-4 transition-all hover:-translate-y-0.5"
+                style={{ background: '#faf6f0', border: '1px solid rgba(44,24,16,.1)', borderRadius: 12 }}
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2">
@@ -127,8 +125,8 @@ export function AccommodationCards({ trip }: Props) {
                   href={s.bookingUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors w-full justify-center text-white hover:opacity-90"
-                  style={{ background: '#6b8f5e' }}
+                  className="pill-lift flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold w-full justify-center text-white"
+                  style={{ background: '#6b8f5e', boxShadow: '0 2px 0 #557a49' }}
                 >
                   <ExternalLink size={11} />
                   Search on Booking.com

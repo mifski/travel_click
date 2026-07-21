@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Plane, ArrowLeft, Plus, X, Scale, Loader2, Sparkles,
+  ArrowLeft, Plus, X, Scale, Loader2, Sparkles,
   Trophy, ExternalLink, MapPin, Wallet, BedDouble, ArrowRight
 } from 'lucide-react'
 import { useTripStore } from '@/lib/store'
@@ -166,28 +166,22 @@ export default function DecidePage() {
   const canCompare = candidates.length >= 2 && months.length > 0 && !loading
 
   return (
-    <div className="min-h-screen" style={{ background: '#f5f0e8' }}>
+    <div className="scrapbook-bg min-h-screen">
       {/* Header */}
-      <header className="bg-white/70 backdrop-blur-md border-b border-amber-200/60 px-5 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
-          <Link href="/" aria-label="Back to home" className="text-amber-700/50 hover:text-amber-700 transition-colors">
+      <header className="px-6 sm:px-10 py-4 flex items-center justify-between"
+        style={{ background: 'rgba(233,223,205,.85)', backdropFilter: 'blur(8px)' }}>
+        <div className="flex items-center gap-4">
+          <Link href="/" aria-label="Back to home" className="transition-colors hover:text-[#2c1810]" style={{ color: 'rgba(44,24,16,.5)' }}>
             <ArrowLeft size={18} />
           </Link>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-md" style={{ background: 'linear-gradient(135deg, #7e9ab5, #93afc9)' }}>
-              <Scale size={15} className="text-white" />
-            </div>
-            <div>
-              <h1 className="font-bold text-[#2c1810] leading-tight" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>
-                Destination Decider
-              </h1>
-              <p className="text-amber-700/50 text-xs">Can&rsquo;t pick? Let the evidence decide.</p>
-            </div>
-          </div>
+          <Link href="/" className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
+            TravelClick<span style={{ color: '#c94040' }}>.</span>
+          </Link>
+          <span style={{ fontSize: 12, color: 'rgba(44,24,16,.45)' }}>/&nbsp;&nbsp;Destination decider</span>
         </div>
-        <Link href="/" className="flex items-center gap-1.5 text-amber-800/50 hover:text-amber-900 text-sm font-medium transition-colors">
-          <Plane size={14} /> <span className="hidden sm:inline">TravelClick</span>
-        </Link>
+        <span className="font-hand hidden sm:block" style={{ fontSize: 17, color: 'rgba(44,24,16,.5)', transform: 'rotate(-1deg)' }}>
+          can&rsquo;t pick? let the evidence decide ⚖️
+        </span>
       </header>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
@@ -302,10 +296,9 @@ export default function DecidePage() {
                 <span className="text-[10px] text-amber-700/50 font-semibold">pax</span>
               </div>
               <button onClick={compare} disabled={!canCompare}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white transition-all disabled:opacity-40 hover:opacity-90 shadow-md whitespace-nowrap"
-                style={{ background: 'linear-gradient(135deg, #c94040, #e05555)' }}>
+                className="pill-coral pill-lift flex items-center gap-2 px-6 py-2.5 rounded-full font-semibold text-sm disabled:opacity-40 whitespace-nowrap">
                 {loading ? <Loader2 size={15} className="animate-spin" /> : <Scale size={15} />}
-                {loading ? 'Comparing…' : 'Compare'}
+                {loading ? 'Comparing…' : '✦ Compare'}
               </button>
             </div>
           </div>
@@ -438,13 +431,16 @@ export default function DecidePage() {
                     {/* Actions */}
                     <div className="mt-auto flex gap-2">
                       <button onClick={() => startPlanning(r)}
-                        className={cn('flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 shadow-md')}
-                        style={{ background: isWinner ? '#6b8f5e' : 'linear-gradient(135deg, #c94040, #e05555)' }}>
+                        className="pill-lift flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-semibold text-white"
+                        style={isWinner
+                          ? { background: '#6b8f5e', boxShadow: '0 3px 0 #557a49' }
+                          : { background: '#c94040', boxShadow: '0 3px 0 #a12f2f' }}>
                         Start planning <ArrowRight size={12} />
                       </button>
                       <a href={googleFlightsUrl(r.destination, isWinner ? comparison.verdict.bestMonth : r.months[0]?.month)}
                         target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold border border-amber-300 text-amber-800 bg-white hover:bg-amber-50 transition-colors">
+                        className="flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-semibold transition-colors hover:text-[#2c1810]"
+                        style={{ border: '1px solid rgba(44,24,16,.18)', color: 'rgba(44,24,16,.6)' }}>
                         <ExternalLink size={11} /> Flights
                       </a>
                     </div>

@@ -5,20 +5,35 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { TravelCard, CardSource } from '@/lib/types'
 import { getCategoryFromTags } from '@/lib/categories'
-import { cn } from '@/lib/utils'
 import { X, ExternalLink, MapPin, Copy, Check, Globe } from 'lucide-react'
 
-const SOURCE_STYLES: Record<CardSource, { label: string; bg: string }> = {
-  youtube:   { label: 'YT',      bg: '#ef4444' },
-  tiktok:    { label: 'TikTok',  bg: '#18181b' },
-  instagram: { label: 'IG',      bg: '#d946ef' },
-  article:   { label: 'Web',     bg: '#0ea5e9' },
-  ai:        { label: 'AI',      bg: '#8b5cf6' },
-  manual:    { label: 'Saved',   bg: '#6b7280' },
+/* Source tags render as bare coloured text on the print border — no pill */
+const SOURCE_STYLES: Record<CardSource, { label: string; color: string }> = {
+  youtube:      { label: 'YT',     color: '#ef4444' },
+  tiktok:       { label: 'TIKTOK', color: '#c94040' },
+  instagram:    { label: 'IG',     color: '#d946ef' },
+  xiaohongshu:  { label: 'XHS',    color: '#ff2442' },
+  article:      { label: 'WEB',    color: '#0ea5e9' },
+  ai:           { label: 'AI',     color: '#8b5cf6' },
+  manual:       { label: 'SAVED',  color: '#2c1810' },
 }
 
 const CONFIDENCE_DOT: Record<string, string> = {
   high: '#10b981', medium: '#f59e0b', low: '#ef4444',
+}
+
+/* Washi tape variants — roughly half the cards get one, chosen by id hash */
+const TAPES = [
+  { bg: 'rgba(200,220,192,.7)',  rot: -5, left: 38 },
+  { bg: 'rgba(192,212,232,.7)',  rot: 6,  right: 30 },
+  { bg: 'rgba(240,196,196,.6)',  rot: 5,  right: 36 },
+  { bg: 'rgba(232,168,184,.6)',  rot: -4, left: 36 },
+]
+
+function hashId(id: string): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
+  return Math.abs(h)
 }
 
 interface Props {
@@ -30,10 +45,19 @@ interface Props {
 export function PostcardCard({ card, onRemove, style }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied]     = useState(false)
+  const [imgFailed, setImgFailed] = useState(false)
 
   const category = getCategoryFromTags(card.tags)
   const src      = SOURCE_STYLES[card.source] ?? SOURCE_STYLES.article
-  const hasImage = !!(card.imageUrl || card.thumbnailUrl)
+  const hasImage = !!(card.imageUrl || card.thumbnailUrl) && !imgFailed
+  const hash     = hashId(card.id)
+  const tape     = hash % 2 === 0 ? TAPES[hash % TAPES.length] : null
+  const imgHeight = 150 + (hash % 106) // 150–255px, stable per card
+
+  const neighbourhood = card.location.city?.split(',')[0] ?? card.location.nameEnglish
+  const tip = card.description?.split(/[.!—]/)[0]?.trim()
+  const subline = [neighbourhood, tip && tip.length <= 44 ? tip : null].filter(Boolean).join(' · ')
+
   const locationText = [card.location.city, card.location.country].filter(Boolean).join(', ')
     || card.location.nameEnglish || 'Unknown location'
 
@@ -47,85 +71,76 @@ export function PostcardCard({ card, onRemove, style }: Props) {
 
   return (
     <>
-      {/* ── Corkboard card: landscape, sticker-like ── */}
-      <motion.div
+      {/* ── Paper photo print ── */}
+      <div
         style={style}
-        className="postcard absolute w-[218px] select-none cursor-pointer"
-        initial={{ scale: 0.72, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        whileHover={{ scale: 1.07, zIndex: 50, rotate: 0 }}
-        transition={{ type: 'spring', stiffness: 280, damping: 20 }}
+        className="paper-print w-full select-none cursor-pointer"
         onClick={() => setExpanded(true)}
       >
-        {/* Push pin */}
-        <div className="push-pin" />
+        {tape && (
+          <span
+            aria-hidden="true"
+            className="washi"
+            style={{
+              top: -10,
+              left: 'left' in tape ? tape.left : undefined,
+              right: 'right' in tape ? tape.right : undefined,
+              width: 64 + (hash % 11),
+              height: 20 + (hash % 3),
+              background: tape.bg,
+              transform: `rotate(${tape.rot}deg)`,
+            }}
+          />
+        )}
 
-        {/* Category accent bar */}
-        <div className="h-[5px] rounded-t-[6px]" style={{ background: category.color }} />
-
-        {/* Image / gradient hero */}
-        <div className="relative overflow-hidden" style={{ height: 80 }}>
-          {hasImage && (
-            // eslint-disable-next-line @next/next/no-img-element
+        {hasImage ? (
+          /* Photo print: white border, full-bleed image, handwritten caption */
+          <div style={{ padding: '11px 11px 13px' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={card.imageUrl ?? card.thumbnailUrl}
               alt={card.title}
-              className="w-full h-full object-cover"
-              onError={e => {
-                e.currentTarget.style.display = 'none'
-                const fb = e.currentTarget.nextElementSibling as HTMLElement
-                if (fb) fb.style.display = 'flex'
-              }}
+              draggable={false}
+              className="block w-full object-cover"
+              style={{ height: imgHeight }}
+              onError={() => setImgFailed(true)}
             />
-          )}
-          {/* Fallback gradient — always present, hidden when image shows */}
-          <div
-            className="absolute inset-0 flex flex-col items-center justify-center gap-1"
-            style={{ background: category.heroBg, display: hasImage ? 'none' : 'flex' }}
-            data-fallback="1"
-          >
-            <span className="text-3xl drop-shadow">{category.icon}</span>
-            <span className="text-[8px] text-white/60 uppercase tracking-widest font-semibold">{category.label}</span>
-          </div>
-
-          {/* Badges */}
-          <div className="absolute bottom-1.5 left-1.5">
-            <span
-              className={cn('flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-bold backdrop-blur-sm', category.badgeBg, category.badgeText)}
-            >
-              {category.icon} {category.label}
-            </span>
-          </div>
-          <div className="absolute top-1.5 right-1.5">
-            <span
-              className="text-[7px] font-bold px-1.5 py-0.5 rounded text-white"
-              style={{ background: src.bg }}
-            >
-              {src.label}
-            </span>
-          </div>
-        </div>
-
-        {/* Card body */}
-        <div className="px-2.5 pt-2 pb-2.5">
-          <p className="text-[11px] font-bold text-[#2c1810] leading-snug line-clamp-2 mb-1">
-            {card.title}
-          </p>
-          <div className="flex items-center gap-1">
-            <MapPin size={7} className="text-amber-600 shrink-0" />
-            <p className="text-[8px] text-amber-800 truncate flex-1">{locationText}</p>
-            {card.confidence && (
-              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: CONFIDENCE_DOT[card.confidence] ?? '#f59e0b' }} />
+            <div className="flex items-baseline justify-between gap-2 mt-2.5">
+              <span className="font-hand text-[#2c1810] leading-tight truncate" style={{ fontSize: 20 }}>
+                {card.title}
+              </span>
+              <span className="shrink-0 font-extrabold" style={{ fontSize: 9.5, letterSpacing: '.08em', color: src.color }}>
+                {src.label}
+              </span>
+            </div>
+            {subline && (
+              <span className="block truncate" style={{ fontSize: 10.5, color: 'rgba(44,24,16,.5)' }}>
+                {subline}
+              </span>
             )}
           </div>
-        </div>
-
-        {/* Bottom stripe */}
-        <div
-          className="h-[5px] rounded-b-[6px]"
-          style={{ background: `linear-gradient(90deg, ${category.color}80, ${category.color}, ${category.color}80)` }}
-        />
-      </motion.div>
+        ) : (
+          /* Text-only print: ruled notebook paper */
+          <div className="ruled-paper" style={{ padding: '18px 18px 16px' }}>
+            {card.location.nameLocal && (
+              <span className="font-display block" style={{ fontWeight: 900, fontSize: 30, color: 'rgba(201,64,64,.85)', lineHeight: 1 }}>
+                {card.location.nameLocal}
+              </span>
+            )}
+            <p className="font-display m-0" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', lineHeight: 1.15, marginTop: card.location.nameLocal ? 8 : 0 }}>
+              {card.title}
+            </p>
+            {tip && (
+              <p className="font-hand m-0" style={{ fontSize: 19, lineHeight: 1.3, color: '#2c1810', marginTop: 8 }}>
+                {tip}
+              </p>
+            )}
+            <span className="inline-block font-extrabold uppercase" style={{ marginTop: 8, fontSize: 9.5, letterSpacing: '.1em', color: '#a86030' }}>
+              {[category.label, neighbourhood, src.label].filter(Boolean).join(' · ')}
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* ── Expanded modal — portaled to <body> so transformed card wrappers can't trap position:fixed ── */}
       {typeof document !== 'undefined' && createPortal(
@@ -133,72 +148,60 @@ export function PostcardCard({ card, onRemove, style }: Props) {
         {expanded && (
           <motion.div
             className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-            style={{ background: 'rgba(44,24,16,0.6)', backdropFilter: 'blur(12px)' }}
+            style={{ background: 'rgba(32,18,9,0.55)', backdropFilter: 'blur(3px)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setExpanded(false)}
           >
             <motion.div
-              className="w-full max-w-md rounded-3xl overflow-hidden shadow-2xl"
-              style={{ background: '#fffef9' }}
-              initial={{ scale: 0.86, y: 24 }}
+              className="w-full max-w-md overflow-hidden"
+              style={{ background: '#fffef9', borderRadius: 16, boxShadow: '0 40px 90px -20px rgba(0,0,0,.6)' }}
+              initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.86, y: 24 }}
+              exit={{ scale: 0.9, y: 20 }}
               transition={{ type: 'spring', stiffness: 380, damping: 28 }}
               onClick={e => e.stopPropagation()}
             >
-              {/* Accent */}
-              <div className="h-2" style={{ background: category.color }} />
-
               {/* Hero */}
-              <div className="relative" style={{ height: 200 }}>
-                {hasImage && (
+              <div className="relative" style={{ height: hasImage ? 210 : 90 }}>
+                {hasImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={card.imageUrl ?? card.thumbnailUrl}
                     alt={card.title}
                     className="w-full h-full object-cover"
-                    onError={e => {
-                      e.currentTarget.style.display = 'none'
-                      const fb = e.currentTarget.nextElementSibling as HTMLElement
-                      if (fb) fb.style.display = 'flex'
-                    }}
                   />
-                )}
-                <div
-                  className="absolute inset-0 flex flex-col items-center justify-center"
-                  style={{ background: category.heroBg, display: hasImage ? 'none' : 'flex' }}
-                  data-fallback="1"
-                >
-                  <span className="text-7xl drop-shadow-lg">{category.icon}</span>
-                  <p className="text-white/65 text-sm mt-2 font-semibold">{category.label}</p>
-                </div>
-
-                {/* Badges */}
-                <div className="absolute top-3 left-3 flex gap-1.5">
-                  <span className="text-[10px] font-bold px-2 py-1 rounded-lg text-white shadow-sm" style={{ background: src.bg }}>
-                    {src.label}
-                  </span>
-                  <span className={cn('flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold backdrop-blur-sm shadow-sm', category.badgeBg, category.badgeText)}>
-                    {category.icon} {category.label}
-                  </span>
-                </div>
-
-                {card.confidence && (
-                  <div
-                    className="absolute top-3 right-10 flex items-center gap-1 rounded-full px-2 py-1"
-                    style={{ background: 'rgba(44,24,16,0.45)', backdropFilter: 'blur(4px)' }}
-                  >
-                    <div className="w-2 h-2 rounded-full" style={{ background: CONFIDENCE_DOT[card.confidence] ?? '#f59e0b' }} />
-                    <span className="text-white/90 text-[9px] capitalize font-bold">{card.confidence}</span>
+                ) : (
+                  <div className="ruled-paper w-full h-full flex items-center justify-center">
+                    <span className="font-display" style={{ fontWeight: 900, fontSize: 44, color: 'rgba(201,64,64,.5)' }}>
+                      {card.location.nameLocal ?? category.icon}
+                    </span>
                   </div>
                 )}
+
+                <div className="absolute top-3 left-4 flex items-center gap-2">
+                  <span
+                    className="font-extrabold px-2 py-1"
+                    style={{ fontSize: 10, letterSpacing: '.1em', color: '#fff', background: src.color === '#2c1810' ? '#2c1810' : src.color, borderRadius: 6 }}
+                  >
+                    {src.label}
+                  </span>
+                  {card.confidence && (
+                    <span
+                      className="flex items-center gap-1 rounded-full px-2 py-1"
+                      style={{ background: 'rgba(44,24,16,0.45)', backdropFilter: 'blur(4px)' }}
+                    >
+                      <span className="w-2 h-2 rounded-full" style={{ background: CONFIDENCE_DOT[card.confidence] ?? '#f59e0b' }} />
+                      <span className="text-white/90 capitalize font-bold" style={{ fontSize: 9 }}>{card.confidence}</span>
+                    </span>
+                  )}
+                </div>
 
                 <button
                   onClick={() => setExpanded(false)}
                   aria-label="Close card details"
-                  className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center text-white transition-colors"
+                  className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center text-white transition-colors hover:bg-black/60"
                   style={{ background: 'rgba(44,24,16,0.45)', backdropFilter: 'blur(4px)' }}
                 >
                   <X size={15} />
@@ -206,46 +209,42 @@ export function PostcardCard({ card, onRemove, style }: Props) {
               </div>
 
               {/* Body */}
-              <div className="p-5">
-                {/* Title + local name */}
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <h3
-                    className="font-bold text-[#1a0f00] text-lg leading-snug flex-1"
-                    style={{ fontFamily: 'Georgia, serif' }}
-                  >
+              <div style={{ padding: '20px 26px 24px' }}>
+                <div className="flex items-start justify-between gap-3 mb-1.5">
+                  <h3 className="font-display flex-1 leading-snug" style={{ fontWeight: 800, fontSize: 22, color: '#2c1810' }}>
                     {card.title}
                   </h3>
                   {card.location.nameLocal && (
                     <button
                       onClick={copyLocalName}
                       title="Copy local name"
-                      className="flex items-center gap-1 text-amber-700/70 hover:text-amber-600 transition-colors shrink-0 mt-0.5"
+                      className="flex items-center gap-1 shrink-0 mt-1 transition-colors hover:opacity-70"
+                      style={{ color: '#a86030' }}
                     >
-                      <span className="text-sm italic font-medium">{card.location.nameLocal}</span>
-                      {copied ? <Check size={12} className="text-[#6b8f5e]" /> : <Copy size={11} />}
+                      <span className="font-hand" style={{ fontSize: 18 }}>{card.location.nameLocal}</span>
+                      {copied ? <Check size={12} style={{ color: '#6b8f5e' }} /> : <Copy size={11} />}
                     </button>
                   )}
                 </div>
 
-                {/* Location chip */}
-                <div className="flex items-center gap-1.5 mb-4 px-3 py-2 rounded-xl border" style={{ background: '#fff7ed', borderColor: '#fed7aa' }}>
-                  <MapPin size={12} className="text-amber-600 shrink-0" />
-                  <p className="text-xs text-amber-900 font-semibold">
-                    {[card.location.nameEnglish, card.location.city, card.location.country].filter(Boolean).join(' · ')}
+                <div className="flex items-center gap-1.5 mb-3">
+                  <MapPin size={11} style={{ color: '#c94040' }} className="shrink-0" />
+                  <p className="font-semibold" style={{ fontSize: 12, color: 'rgba(44,24,16,.65)' }}>
+                    {[card.location.nameEnglish, card.location.city, card.location.country].filter(Boolean).join(' · ') || locationText}
                   </p>
                 </div>
 
-                {/* Description */}
-                <p className="text-sm text-[#3a2a10] leading-relaxed mb-4 line-clamp-4">{card.description}</p>
+                <p className="leading-relaxed mb-4 line-clamp-4" style={{ fontSize: 12.5, color: 'rgba(44,24,16,.7)' }}>
+                  {card.description}
+                </p>
 
-                {/* Tags */}
                 {card.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-4">
                     {card.tags.map(tag => (
                       <span
                         key={tag}
-                        className="text-[10px] px-2.5 py-1 rounded-full font-semibold"
-                        style={{ background: `${category.color}18`, color: category.color, border: `1px solid ${category.color}38` }}
+                        className="font-bold uppercase px-2.5 py-1 rounded-full"
+                        style={{ fontSize: 9.5, letterSpacing: '.06em', background: `${category.color}14`, color: category.color, border: `1px solid ${category.color}30` }}
                       >
                         {tag}
                       </span>
@@ -253,33 +252,31 @@ export function PostcardCard({ card, onRemove, style }: Props) {
                   </div>
                 )}
 
-                {/* Creator */}
                 {card.creator && (
                   <div className="flex items-center gap-1.5 mb-4">
-                    <Globe size={11} className="text-amber-600" />
-                    <p className="text-xs text-amber-700 font-medium">via @{card.creator}</p>
+                    <Globe size={11} style={{ color: '#a86030' }} />
+                    <p className="font-hand" style={{ fontSize: 16, color: 'rgba(44,24,16,.6)' }}>via @{card.creator}</p>
                   </div>
                 )}
 
-                {/* Actions */}
                 <div className="flex gap-2">
                   {card.sourceUrl && (
                     <a
                       href={card.sourceUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white hover:opacity-90 active:scale-[0.98] transition-all"
-                      style={{ background: category.color }}
+                      className="pill-coral pill-lift flex-1 flex items-center justify-center gap-2 py-2.5 rounded-full font-semibold"
+                      style={{ fontSize: 12.5 }}
                     >
-                      <ExternalLink size={14} />
-                      View Source
+                      <ExternalLink size={13} />
+                      View source
                     </a>
                   )}
                   {onRemove && (
                     <button
                       onClick={() => { onRemove(card.id); setExpanded(false) }}
-                      className="px-4 py-2.5 rounded-xl text-sm font-bold hover:opacity-80 transition-colors"
-                      style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca' }}
+                      className="px-4 py-2.5 rounded-full font-semibold transition-colors hover:opacity-80"
+                      style={{ fontSize: 12.5, color: 'rgba(44,24,16,.55)', border: '1px solid rgba(44,24,16,.18)' }}
                     >
                       Remove
                     </button>

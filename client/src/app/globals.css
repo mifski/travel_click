@@ -1,17 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  /* Brand palette from moodboards */
+  /* Brand palette — travel scrapbook + binder */
   --cream:       #faf6f0;
   --cream-warm:  #f2ead8;
+  --board-cream: #e9dfcd;
+  --paper:       #fffef9;
   --parchment:   #ece0c8;
   --ink:         #2c1810;
   --ink-muted:   #7a6655;
-  --cork:        #c8804a;
-  --cork-dark:   #a86030;
+  --espresso:    #201209;
 
-  /* Accent colours — And Arlen / travel journal palette */
+  /* Accent colours */
   --coral:       #c94040;
+  --coral-dark:  #a12f2f;
   --coral-light: #f0c4c4;
   --sage:        #6b8f5e;
   --sage-light:  #c8dcc0;
@@ -20,9 +22,13 @@
   --blush:       #e8a8b8;
   --yellow:      #e8d840;
   --gold:        #c9a84c;
+  --gold-dark:   #b08830;
+  --tan:         #a86030;
 
-  /* Pin */
-  --pin-red:     #c94040;
+  /* Sticky note */
+  --sticky-top:  #fdf3b9;
+  --sticky-bot:  #f7e88e;
+  --sticky-ink:  #4a3520;
 }
 
 @theme inline {
@@ -36,88 +42,155 @@
 
 body {
   font-family: var(--font-geist-sans, Arial, sans-serif);
-  background: var(--cream);
+  background: var(--board-cream);
   color: var(--ink);
   overscroll-behavior: none;
 }
 
-/* ── Cork texture — warm amber board ── */
-.cork-bg {
-  background-color: #c8804a;
+/* ── Type helpers ── */
+.font-display { font-family: var(--font-playfair, 'Playfair Display', Georgia, serif); }
+.font-hand    { font-family: var(--font-caveat, 'Caveat', cursive); }
+
+/* ── Scrapbook board background — warm cream with layered texture ── */
+.scrapbook-bg {
+  background-color: #e9dfcd;
   background-image:
-    radial-gradient(ellipse at 18% 22%, rgba(220,140,55,0.7) 0%, transparent 42%),
-    radial-gradient(ellipse at 82% 75%, rgba(155,90,28,0.65) 0%, transparent 38%),
-    radial-gradient(ellipse at 50% 52%, rgba(210,150,65,0.4) 0%, transparent 55%),
-    radial-gradient(ellipse at 68% 18%, rgba(240,170,70,0.35) 0%, transparent 32%),
-    repeating-linear-gradient(
-      43deg, transparent, transparent 2px,
-      rgba(0,0,0,0.045) 2px, rgba(0,0,0,0.045) 4px
-    ),
-    repeating-linear-gradient(
-      -47deg, transparent, transparent 3px,
-      rgba(255,255,255,0.03) 3px, rgba(255,255,255,0.03) 6px
-    );
+    radial-gradient(ellipse at 30% 20%, rgba(255,252,244,.65), transparent 55%),
+    radial-gradient(ellipse at 80% 85%, rgba(160,125,80,.22), transparent 50%),
+    repeating-linear-gradient(2deg, transparent, transparent 3px, rgba(120,90,50,.02) 3px, rgba(120,90,50,.02) 5px);
 }
 
-/* ── Postcard / sticker card ── */
-.postcard {
-  background: #fffef9;
-  border-radius: 6px;
-  box-shadow:
-    0 1px 4px rgba(80,40,10,0.18),
-    0 5px 18px rgba(80,40,10,0.14),
-    0 0 0 1px rgba(200,140,60,0.18),
-    inset 0 1px 0 rgba(255,255,255,0.9);
+/* ── Paper photo print ── */
+.paper-print {
   position: relative;
-  cursor: pointer;
-  transform-origin: top center;
+  background: var(--paper);
+  box-shadow:
+    0 2px 3px rgba(44,24,16,.12),
+    0 16px 36px -8px rgba(44,24,16,.36);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.paper-print:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 3px 5px rgba(44,24,16,.14),
+    0 30px 56px -10px rgba(44,24,16,.5);
 }
 
-.postcard::after {
-  content: '';
+/* Ruled-notebook lines for text-only cards */
+.ruled-paper {
+  background-image: repeating-linear-gradient(
+    0deg, transparent, transparent 26px, rgba(126,154,181,.22) 27px
+  );
+}
+
+/* ── Washi tape strip ── */
+.washi {
   position: absolute;
-  inset: 0;
-  border-radius: 6px;
-  background: linear-gradient(145deg, rgba(255,255,255,0.22) 0%, transparent 45%, rgba(0,0,0,0.03) 100%);
+  box-shadow: 0 1px 3px rgba(0,0,0,.12);
   pointer-events: none;
+  z-index: 2;
 }
 
-/* ── Push pin ── */
-.push-pin {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 32%, #f08080, #c94040, #a82828);
-  box-shadow: 0 3px 8px rgba(0,0,0,0.5), inset 0 1px 3px rgba(255,255,255,0.35);
-  position: absolute;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
+/* ── Sticky note — warm yellow gradient, curled corner ── */
+.sticky-note {
+  position: relative;
+  background: linear-gradient(180deg, var(--sticky-top), var(--sticky-bot));
+  width: 190px;
+  min-height: 130px;
+  padding: 24px 14px 14px;
+  box-shadow: 0 2px 3px rgba(44,24,16,.14), 0 14px 30px -6px rgba(44,24,16,.3);
+  font-family: var(--font-caveat, 'Caveat', cursive);
+  font-size: 18px;
+  line-height: 1.3;
+  color: var(--sticky-ink);
+  cursor: grab;
+  transition: transform .25s ease;
 }
-.push-pin::after {
+.sticky-note:hover  { transform: translateY(-4px); }
+.sticky-note:active { cursor: grabbing; }
+/* curled corner */
+.sticky-note::after {
   content: '';
   position: absolute;
-  bottom: -5px;
+  bottom: 0;
+  right: 0;
+  border-style: solid;
+  border-width: 0 0 18px 18px;
+  border-color: transparent transparent rgba(0,0,0,.1) transparent;
+}
+/* tape at top centre */
+.washi-tape {
+  position: absolute;
+  top: -9px;
   left: 50%;
-  transform: translateX(-50%);
-  width: 3px;
-  height: 7px;
-  background: linear-gradient(to bottom, #8a6040, #604020);
-  border-radius: 0 0 2px 2px;
+  transform: translateX(-50%) rotate(-2deg);
+  width: 70px;
+  height: 20px;
+  background: rgba(232,168,184,.6);
+  box-shadow: 0 1px 3px rgba(0,0,0,.12);
 }
 
-/* ── Binder rings — gold ── */
-.binder-ring {
-  width: 26px;
-  height: 26px;
-  border: 4px solid #a07840;
+/* ── Luggage-tag filter chip ── */
+.luggage-tag {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 16px 7px 24px;
+  border-radius: 6px 999px 999px 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: transform .2s ease, background .2s ease, color .2s ease;
+}
+.luggage-tag::before {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #e8c870, #b08830);
-  box-shadow: 0 2px 5px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.28);
+  background: var(--board-cream);
+  box-shadow: inset 0 0 0 1.5px rgba(44,24,16,.25);
+}
+.luggage-tag:hover { transform: rotate(0deg) translateY(-2px) !important; }
+
+/* ── Hard-offset action pills ── */
+.pill-coral {
+  background: var(--coral);
+  color: #fff;
+  box-shadow: 0 3px 0 var(--coral-dark), 0 10px 24px -6px rgba(201,64,64,.5);
+}
+.pill-paper {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 2px 0 rgba(44,24,16,.12), 0 8px 18px -6px rgba(44,24,16,.3);
+}
+.pill-ink {
+  background: var(--ink);
+  color: var(--cream-warm);
+  box-shadow: 0 4px 0 #180c06, 0 16px 34px -8px rgba(44,24,16,.6);
+}
+.pill-gold {
+  background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+  color: var(--espresso);
+  box-shadow: 0 10px 26px -8px rgba(201,168,76,.5);
+}
+.pill-lift { transition: transform .2s ease; }
+.pill-lift:hover:not(:disabled) { transform: translateY(-2px); }
+
+/* ── Passport stamp (decorative) ── */
+.passport-stamp {
+  border: 3px solid rgba(107,143,94,.55);
+  border-radius: 50%;
+  color: rgba(107,143,94,.75);
+  mask-image: repeating-conic-gradient(black 0deg 8deg, rgba(0,0,0,.75) 8deg 12deg);
+  -webkit-mask-image: repeating-conic-gradient(black 0deg 8deg, rgba(0,0,0,.75) 8deg 12deg);
 }
 
-/* ── Stamp ── */
+/* ── Stamp (kept for brief / print views) ── */
 .stamp {
   display: inline-block;
   padding: 4px 10px;
@@ -131,91 +204,13 @@ body {
   text-transform: uppercase;
 }
 
-/* ── Day tab ── */
-.day-tab {
-  writing-mode: horizontal-tb;
-  padding: 7px 14px;
-  cursor: pointer;
-  font-weight: 700;
-  font-size: 13px;
-  border-radius: 8px 8px 0 0;
-  transition: all 0.18s;
-  border: 1px solid rgba(0,0,0,0.1);
-  border-bottom: none;
-  margin-right: 3px;
-  min-width: 52px;
-  text-align: center;
-}
-
-/* ── Paper texture overlay for itinerary pages ── */
+/* ── Paper texture overlay (print view) ── */
 .paper-texture {
   background-image:
     repeating-linear-gradient(
       0deg, transparent, transparent 27px,
       rgba(180,140,80,0.08) 28px
     );
-}
-
-/* ── Scrollbar ── */
-::-webkit-scrollbar        { width: 6px; height: 6px; }
-::-webkit-scrollbar-track  { background: transparent; }
-::-webkit-scrollbar-thumb  { background: rgba(100,60,20,0.2); border-radius: 3px; }
-
-/* ── Animations ── */
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-6px); }
-}
-@keyframes shimmer {
-  0%   { background-position: -200% center; }
-  100% { background-position:  200% center; }
-}
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 18px rgba(201,64,64,0.3); }
-  50%       { box-shadow: 0 0 32px rgba(201,64,64,0.55); }
-}
-
-.shimmer {
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25) 50%, transparent 100%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
-/* ── Sticky note ── */
-.sticky-note {
-  width: 168px;
-  min-height: 130px;
-  padding: 26px 14px 14px;
-  box-shadow: 0 1px 3px rgba(80,40,10,0.2), 0 6px 16px rgba(80,40,10,0.16);
-  font-family: 'Comic Sans MS', 'Segoe Print', cursive;
-  font-size: 13px;
-  line-height: 1.45;
-  position: relative;
-  cursor: grab;
-}
-.sticky-note:active { cursor: grabbing; }
-/* folded corner */
-.sticky-note::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  border-style: solid;
-  border-width: 0 0 16px 16px;
-  border-color: transparent transparent rgba(0,0,0,0.08) transparent;
-}
-/* washi tape */
-.washi-tape {
-  position: absolute;
-  top: -8px;
-  left: 50%;
-  transform: translateX(-50%) rotate(-2deg);
-  width: 72px;
-  height: 20px;
-  background: rgba(255,255,255,0.45);
-  border-left: 1px dashed rgba(0,0,0,0.08);
-  border-right: 1px dashed rgba(0,0,0,0.08);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
 }
 
 /* ── Rubber stamp (trip status) ── */
@@ -230,6 +225,39 @@ body {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   opacity: 0.85;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar        { width: 6px; height: 6px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: rgba(100,60,20,0.2); border-radius: 3px; }
+
+/* ── Animations ── */
+@keyframes tc-spin { to { transform: rotate(360deg); } }
+@keyframes tc-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tc-pop {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.tc-spinner {
+  border-radius: 50%;
+  animation: tc-spin .8s linear infinite;
+  flex: none;
 }
 
 /* ── Accessibility ── */

@@ -60,7 +60,7 @@ export default function ProfilePage() {
       if (avatarFile) {
         avatarUrl = await uploadAvatar(user.id, avatarFile)
       }
-      await upsertProfile({
+      const { error: upsertError } = await upsertProfile({
         id: user.id,
         username: username.replace(/^@/, ''),
         display_name: displayName,
@@ -68,6 +68,7 @@ export default function ProfilePage() {
         gender: gender || null,
         avatar_url: avatarUrl,
       })
+      if (upsertError) throw upsertError
       await refreshProfile()
       setSaved(true)
       toast.success('Profile saved')
@@ -83,7 +84,7 @@ export default function ProfilePage() {
   }
 
   if (loading || !user) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#f5f0e8' }}>
+    <div className="scrapbook-bg min-h-screen flex items-center justify-center">
       <Loader2 className="animate-spin text-[#c94040]" size={28} />
     </div>
   )
@@ -91,12 +92,16 @@ export default function ProfilePage() {
   const inp = 'w-full bg-amber-50/60 border border-amber-200 rounded-xl px-4 py-3 text-[#2c1810] text-sm placeholder-amber-700/30 focus:outline-none focus:border-[#c94040]/60 focus:bg-white transition-colors'
 
   return (
-    <div className="min-h-screen" style={{ background: '#f5f0e8' }}>
-      <header className="bg-white/70 backdrop-blur-md border-b border-amber-200/60 px-5 py-4 flex items-center gap-3 shadow-sm">
-        <Link href="/boards" aria-label="Back to boards" className="text-amber-700/50 hover:text-amber-700 transition-colors">
+    <div className="scrapbook-bg min-h-screen">
+      <header className="px-6 sm:px-10 py-4 flex items-center gap-4"
+        style={{ background: 'rgba(233,223,205,.85)', backdropFilter: 'blur(8px)' }}>
+        <Link href="/boards" aria-label="Back to boards" className="transition-colors hover:text-[#2c1810]" style={{ color: 'rgba(44,24,16,.5)' }}>
           <ArrowLeft size={18} />
         </Link>
-        <h1 className="text-[#2c1810] font-bold" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>Profile</h1>
+        <span className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
+          TravelClick<span style={{ color: '#c94040' }}>.</span>
+        </span>
+        <span style={{ fontSize: 12, color: 'rgba(44,24,16,.45)' }}>/&nbsp;&nbsp;Profile</span>
       </header>
 
       <div className="max-w-md mx-auto px-5 py-8">
@@ -111,7 +116,8 @@ export default function ProfilePage() {
         </div>
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-white/80 border border-amber-200 rounded-2xl p-6 space-y-4 shadow-sm">
+          className="p-6 space-y-4"
+          style={{ background: '#fffef9', borderRadius: 16, boxShadow: '0 2px 3px rgba(44,24,16,.12), 0 20px 44px -10px rgba(44,24,16,.25)' }}>
 
           <div>
             <label className="text-xs text-amber-800/60 mb-1 block font-semibold">Display Name</label>
@@ -149,16 +155,16 @@ export default function ProfilePage() {
           </div>
 
           <button onClick={handleSave} disabled={saving}
-            className="w-full py-3 text-white rounded-xl font-bold transition-all disabled:opacity-60 flex items-center justify-center gap-2 shadow-md hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #c94040, #e05555)' }}>
+            className="pill-coral pill-lift w-full py-3 rounded-full font-bold transition-all disabled:opacity-60 flex items-center justify-center gap-2">
             {saving ? <Loader2 size={16} className="animate-spin" /> : saved ? <Check size={16} /> : <Save size={16} />}
-            {saved ? 'Saved!' : saving ? 'Saving…' : 'Save Changes'}
+            {saved ? 'Saved!' : saving ? 'Saving…' : 'Save changes'}
           </button>
         </motion.div>
 
         <button onClick={handleSignOut}
-          className="w-full mt-4 py-3 border border-red-300/60 text-red-600 bg-white/60 rounded-xl text-sm font-bold hover:bg-red-50 transition-colors">
-          Sign Out
+          className="w-full mt-4 py-3 rounded-full text-sm font-semibold transition-colors hover:bg-[#c94040]/5"
+          style={{ border: '1px solid rgba(201,64,64,.4)', color: '#a12f2f' }}>
+          Sign out
         </button>
       </div>
     </div>

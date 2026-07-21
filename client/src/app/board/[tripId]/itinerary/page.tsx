@@ -3,21 +3,23 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Sparkles, RefreshCw, AlertTriangle, Printer, Wand2, Loader2 } from 'lucide-react'
 import { useTripStore } from '@/lib/store'
+import { useAuth } from '@/lib/auth-context'
 import { ItineraryBinder, DayPage, DAY_COLORS } from '@/components/Itinerary/ItineraryBinder'
+import { GenerationOverlay } from '@/components/UI/GenerationOverlay'
+import { toast } from '@/components/UI/Toaster'
 import { DEMO_TRIP_ID, seedDemo } from '@/lib/demo-data'
 import type { GeneratedItinerary } from '@/lib/types'
-import { getDayCount } from '@/lib/utils'
+import { formatDateRange } from '@/lib/utils'
 
-const LOADING_STEPS = [
-  'Reading your pinned places…',
-  'Grouping spots by neighbourhood…',
-  'Balancing the daily pace…',
-  'Timing meals around activities…',
-  'Adding local tips & costs…',
-  'Polishing the final plan…',
+const cream = (a: number) => `rgba(242,234,216,${a})`
+
+const REFINE_STEPS = [
+  'Re-reading your pins…',
+  'Reworking the day…',
+  'Rebalancing the pace…',
+  'Re-pricing each stop…',
+  'Binding the pages…',
 ]
 
 export default function ItineraryPage() {
@@ -25,18 +27,17 @@ export default function ItineraryPage() {
   const router = useRouter()
   const trip = useTripStore((s) => s.trips.find((t) => t.id === tripId) ?? null)
   const cards = useTripStore((s) => s.cards[tripId]) ?? []
-  const storedItinerary = useTripStore((s) => s.itineraries[tripId] ?? null)
+  const itinerary = useTripStore((s) => s.itineraries[tripId] ?? null)
   const saveItinerary = useTripStore((s) => s.saveItinerary)
+  const { user, profile } = useAuth()
 
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [refining, setRefining] = useState(false)
   const [error, setError] = useState('')
-  const [showRefine, setShowRefine] = useState(false)
-  const [instructions, setInstructions] = useState('')
-  const [loadingStep, setLoadingStep] = useState(0)
+  const [activeDay, setActiveDay] = useState(0)
 
   const isDemo = tripId === DEMO_TRIP_ID
-  const itinerary: GeneratedItinerary | null = storedItinerary
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -52,16 +53,11 @@ export default function ItineraryPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, trip])
 
-  // Rotate loading narration
-  useEffect(() => {
-    if (!loading) { setLoadingStep(0); return }
-    const id = setInterval(() => setLoadingStep((s) => Math.min(s + 1, LOADING_STEPS.length - 1)), 7000)
-    return () => clearInterval(id)
-  }, [loading])
-
   async function generate(customInstructions?: string) {
     if (!trip) return
-    setLoading(true)
+    const isRefine = !!customInstructions
+    if (isRefine) setRefining(true)
+    else setLoading(true)
     setError('')
 
     const savedPlaces = cards.map((c) =>
@@ -78,203 +74,177 @@ export default function ItineraryPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to generate itinerary')
 
-      const gen = data.itinerary as GeneratedItinerary
-      saveItinerary(gen)
-      setShowRefine(false)
-      setInstructions('')
+      saveItinerary(data.itinerary as GeneratedItinerary)
+      if (isRefine) toast.success('Refined — your binder is updated ✦')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate itinerary')
+      const msg = err instanceof Error ? err.message : 'Failed to generate itinerary'
+      if (isRefine) toast.error(msg)
+      else setError(msg)
     } finally {
       setLoading(false)
+      setRefining(false)
     }
   }
 
-  if (!mounted) return null
-  if (!trip) return null
+  if (!mounted || !trip) return null
 
-  const days = Math.max(1, getDayCount(trip.startDate, trip.endDate))
+  const dateRange = formatDateRange(trip.startDate, trip.endDate)
+  const ghost = trip.destination === 'Tokyo' ? '東京' : trip.destination.toUpperCase()
+  const avatarInitial = (profile?.display_name ?? user?.email ?? 'Traveller')[0]?.toUpperCase() ?? 'T'
+
+  const navLinks = [
+    { label: 'Stays', tool: 'stays' },
+    { label: 'Brief', tool: 'brief' },
+    { label: 'Packing', tool: 'packing' },
+  ]
 
   return (
     <div
-      className="min-h-screen flex flex-col"
-      style={{ background: 'linear-gradient(160deg, #fdf3e3 0%, #fce8c5 40%, #f5d9a8 100%)' }}
+      className="min-h-screen"
+      style={{
+        background: '#201209',
+        backgroundImage:
+          'radial-gradient(ellipse at 50% -10%, rgba(201,168,76,.14), transparent 55%), radial-gradient(ellipse at 90% 100%, rgba(201,64,64,.08), transparent 45%)',
+        paddingBottom: 48,
+        animation: 'tc-fade .3s ease-out',
+      }}
     >
-      {/* Header */}
-      <header className="px-4 sm:px-6 py-4 flex items-center justify-between border-b border-amber-200/60 bg-white/40 backdrop-blur-md print-hidden">
-        <div className="flex items-center gap-3">
-          <Link href={`/board/${tripId}`} aria-label="Back to board" className="text-amber-700/60 hover:text-amber-700 transition-colors">
-            <ArrowLeft size={18} />
+      <div className="mx-auto print-hidden" style={{ maxWidth: 1280 }}>
+
+        {/* ── Top bar ── */}
+        <div className="flex items-center justify-between flex-wrap gap-4" style={{ padding: '20px 40px' }}>
+          <Link href={`/board/${tripId}`} className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#f2ead8' }}>
+            TravelClick<span style={{ color: '#c9a84c' }}>.</span>
           </Link>
-          <div>
-            <h1 className="text-amber-900 font-bold text-base" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>
-              {trip.destination} Itinerary
-            </h1>
-            <p className="text-amber-700/60 text-xs">{days}-day trip · {trip.priceRange}</p>
+          <div className="flex flex-wrap" style={{ gap: 26, fontSize: 12, color: cream(0.55) }}>
+            <Link href={`/board/${tripId}`} className="transition-colors hover:text-[#f2ead8]">← Moodboard</Link>
+            <span style={{ color: '#f2ead8', borderBottom: '2px solid #c9a84c', paddingBottom: 3 }}>Itinerary</span>
+            {navLinks.map((l) => (
+              <Link key={l.tool} href={`/board/${tripId}?tool=${l.tool}`} className="transition-colors hover:text-[#f2ead8]">
+                {l.label}
+              </Link>
+            ))}
+          </div>
+          <div className="flex items-center gap-3">
+            {itinerary && !loading && (
+              <>
+                <button
+                  onClick={() => window.print()}
+                  className="rounded-full transition-all hover:border-[#c9a84c] hover:text-[#c9a84c]"
+                  style={{ padding: '7px 16px', border: `1px solid ${cream(0.25)}`, color: cream(0.7), fontSize: 11.5 }}
+                >
+                  🖨 Print / PDF
+                </button>
+                <button
+                  onClick={() => generate()}
+                  disabled={loading || refining}
+                  title="Regenerate the whole itinerary"
+                  className="rounded-full transition-all hover:border-[#c9a84c] hover:text-[#c9a84c] disabled:opacity-40"
+                  style={{ padding: '7px 16px', border: `1px solid ${cream(0.25)}`, color: cream(0.7), fontSize: 11.5 }}
+                >
+                  ↻ Regenerate
+                </button>
+              </>
+            )}
+            <span
+              className="w-8 h-8 rounded-full flex items-center justify-center font-bold"
+              style={{ background: 'linear-gradient(135deg, #c9a84c, #a86030)', color: '#201209', fontSize: 12 }}
+            >
+              {avatarInitial}
+            </span>
           </div>
         </div>
 
-        {itinerary && !loading && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => window.print()}
-              className="flex items-center gap-2 px-3.5 py-2 bg-white/70 border border-amber-300 rounded-xl text-amber-800 hover:bg-white text-sm font-semibold transition-all"
-              title="Print or save as PDF"
+        {/* ── Masthead ── */}
+        <div className="flex items-end justify-between flex-wrap gap-4" style={{ padding: '22px 40px 6px' }}>
+          <div className="relative">
+            <div style={{ fontSize: 11, letterSpacing: '.3em', color: '#c9a84c', fontWeight: 600, marginBottom: 8 }}>
+              THE BINDER · {dateRange} · {trip.paxCount} TRAVELLER{trip.paxCount > 1 ? 'S' : ''}
+            </div>
+            <h1 className="font-display m-0" style={{ fontWeight: 800, fontSize: 72, lineHeight: 0.92, color: '#f2ead8', letterSpacing: '-.02em' }}>
+              {trip.destination},{' '}
+              <span className="italic" style={{ fontWeight: 500, color: cream(0.75) }}>day by day</span>
+            </h1>
+            <span
+              aria-hidden="true"
+              className="font-display absolute pointer-events-none select-none whitespace-nowrap hidden xl:block"
+              style={{ right: -190, top: -18, fontWeight: 900, fontSize: ghost.length <= 4 ? 130 : 80, color: cream(0.045) }}
             >
-              <Printer size={13} />
-              <span className="hidden sm:inline">Print / PDF</span>
-            </button>
-            <button
-              onClick={() => setShowRefine((v) => !v)}
-              className="flex items-center gap-2 px-3.5 py-2 bg-amber-100 border border-amber-300 rounded-xl text-amber-800 hover:bg-amber-200 text-sm font-semibold transition-all"
-            >
-              <Wand2 size={13} />
-              <span className="hidden sm:inline">Refine</span>
-            </button>
-            <button
-              onClick={() => generate()}
-              disabled={loading}
-              aria-label="Regenerate itinerary"
-              className="flex items-center gap-2 px-3.5 py-2 bg-amber-100 border border-amber-300 rounded-xl text-amber-800 hover:bg-amber-200 text-sm font-semibold transition-all disabled:opacity-50"
-            >
-              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-              <span className="hidden sm:inline">Regenerate</span>
-            </button>
+              {ghost}
+            </span>
           </div>
-        )}
-      </header>
-
-      {/* Refine panel */}
-      <AnimatePresence>
-        {showRefine && itinerary && !loading && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden border-b border-amber-200/60 bg-white/50 backdrop-blur-md print-hidden"
-          >
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
-              <label className="text-xs font-bold text-amber-900 block mb-2">
-                ✨ Tell the AI how to adjust your plan
-              </label>
-              <div className="flex gap-2">
-                <input
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && instructions.trim() && generate(instructions)}
-                  placeholder='e.g. "More street food, fewer museums, keep evenings relaxed"'
-                  className="flex-1 bg-white border border-amber-200 rounded-xl px-4 py-2.5 text-sm text-[#2c1810] placeholder-amber-700/35 focus:outline-none focus:border-[#c94040]/60 transition-colors"
-                />
-                <button
-                  onClick={() => instructions.trim() && generate(instructions)}
-                  disabled={!instructions.trim()}
-                  className="px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40 hover:opacity-90 shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #c94040, #e05555)' }}
-                >
-                  Refine & Regenerate
-                </button>
-              </div>
+          {itinerary?.totalEstimatedCost && (
+            <div className="flex flex-col items-end gap-1.5" style={{ paddingBottom: 8 }}>
+              <span style={{ fontSize: 12, color: cream(0.55) }}>Trip total (est.)</span>
+              <span className="font-display" style={{ fontWeight: 800, fontSize: 30, color: '#c9a84c' }}>
+                {itinerary.totalEstimatedCost}
+              </span>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </div>
 
-      <div className="flex-1 flex flex-col p-4 sm:p-6 max-w-4xl mx-auto w-full print-hidden">
-        {loading && (
-          <div className="flex-1 flex flex-col items-center justify-center gap-6">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-            >
-              <Sparkles size={44} className="text-amber-500" />
-            </motion.div>
-            <div className="text-center">
-              <p className="text-amber-900 font-bold text-xl mb-2">Crafting your itinerary…</p>
-              <AnimatePresence mode="wait">
-                <motion.p
-                  key={loadingStep}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  className="text-amber-700/70 text-sm"
-                >
-                  {LOADING_STEPS[loadingStep]}
-                </motion.p>
-              </AnimatePresence>
-            </div>
-            <div className="w-56 h-2 bg-amber-200 rounded-full overflow-hidden">
-              <motion.div
-                className="h-full bg-amber-500 rounded-full"
-                initial={{ width: '0%' }}
-                animate={{ width: '90%' }}
-                transition={{ duration: 55, ease: 'easeInOut' }}
-              />
-            </div>
-            <p className="text-amber-600/60 text-xs">Planning {days} days in {trip.destination} · usually 20–45 seconds</p>
-          </div>
-        )}
-
+        {/* ── Error state ── */}
         {error && !loading && (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4">
-            <div className="flex flex-col items-center gap-3 p-6 bg-red-50 border border-red-200 rounded-2xl max-w-sm text-center">
-              <AlertTriangle size={28} className="text-red-400" />
-              <p className="text-red-700 font-medium text-sm">{error}</p>
-            </div>
+          <div className="flex flex-col items-center gap-5" style={{ padding: '60px 40px' }}>
+            <p className="font-hand text-center" style={{ fontSize: 24, color: cream(0.7), maxWidth: 420 }}>
+              the binder didn&rsquo;t make it off the press — {error}
+            </p>
             <button
               onClick={() => generate()}
-              className="px-6 py-3 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/30"
+              className="pill-gold pill-lift rounded-full font-bold"
+              style={{ padding: '12px 26px', fontSize: 13 }}
             >
-              Try Again
+              ✦ Try again
             </button>
           </div>
         )}
 
-        {itinerary && !loading && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex-1 flex flex-col rounded-2xl overflow-hidden shadow-2xl shadow-amber-900/20"
-            style={{ minHeight: 'max(600px, 78vh)' }}
-          >
-            <ItineraryBinder itinerary={itinerary} />
-          </motion.div>
-        )}
+        {/* ── Binder ── */}
+        {itinerary && !error && (
+          <>
+            <ItineraryBinder
+              itinerary={itinerary}
+              cards={cards}
+              activeDay={activeDay}
+              onDayChange={setActiveDay}
+              onRefine={(instructions) => generate(`For day ${activeDay + 1}: ${instructions}`)}
+              refining={refining}
+            />
 
-        {/* General tips */}
-        {itinerary && !loading && itinerary.generalTips?.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="mt-5 bg-white/60 border border-amber-200 rounded-2xl p-5 backdrop-blur-sm"
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles size={15} className="text-amber-500" />
-              <h3 className="text-amber-900 font-bold text-sm">General Tips</h3>
-              <span className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full border border-amber-200 font-medium">AI-suggested</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {itinerary.generalTips.map((tip, i) => (
-                <p key={i} className="text-xs text-amber-800 flex gap-2">
-                  <span className="text-amber-500 shrink-0 font-bold">•</span>
-                  {tip}
-                </p>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {loading && (
-          <div className="sr-only" role="status">Generating itinerary, please wait</div>
+            {/* General tips */}
+            {itinerary.generalTips?.length > 0 && (
+              <div style={{ padding: '40px 40px 0', maxWidth: 900 }}>
+                <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '.2em', color: 'rgba(201,168,76,.7)' }}>
+                  GOOD TO KNOW
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: '6px 28px', marginTop: 8 }}>
+                  {itinerary.generalTips.map((tip, i) => (
+                    <p key={i} className="m-0 flex gap-2" style={{ fontSize: 11.5, lineHeight: 1.6, color: cream(0.55) }}>
+                      <span style={{ color: '#c9a84c' }} className="shrink-0">·</span>
+                      {tip}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
+      {/* First generation + refine both run under the staged overlay */}
+      <GenerationOverlay show={loading} />
+      <GenerationOverlay show={refining} title="Refining this day" steps={REFINE_STEPS} />
+
       {/* ── Print-only flat document ── */}
       {itinerary && (
-        <div className="print-only px-2">
+        <div className="print-only px-2" style={{ background: 'white', color: '#1a0f00' }}>
           <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: 'Georgia, serif' }}>
             {itinerary.destination} — Trip Itinerary
           </h1>
-          <p className="text-sm text-stone-600 mb-1">{trip.startDate} → {trip.endDate} · {trip.paxCount} traveller{trip.paxCount > 1 ? 's' : ''}{itinerary.totalEstimatedCost ? ` · ${itinerary.totalEstimatedCost}` : ''}</p>
+          <p className="text-sm text-stone-600 mb-1">
+            {trip.startDate} → {trip.endDate} · {trip.paxCount} traveller{trip.paxCount > 1 ? 's' : ''}
+            {itinerary.totalEstimatedCost ? ` · ${itinerary.totalEstimatedCost}` : ''}
+          </p>
           <p className="text-sm mb-6">{itinerary.overview}</p>
           {itinerary.days.map((day, i) => (
             <div key={i} style={{ breakInside: 'avoid' }} className="mb-4">

@@ -1,33 +1,38 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { X } from 'lucide-react'
-import type { StickyNote } from '@/lib/types'
-import { STICKY_COLORS } from '@/lib/types'
+import type { StickyNote, StickyColor } from '@/lib/types'
+
+/* Gradient pairs per sticky colour — warm paper, no border radius */
+const STICKY_GRADIENTS: Record<StickyColor, { top: string; bottom: string; text: string; tape: string }> = {
+  yellow: { top: '#fdf3b9', bottom: '#f7e88e', text: '#4a3520', tape: 'rgba(232,168,184,.6)' },
+  pink:   { top: '#fcd5e0', bottom: '#f8c0d2', text: '#7a2a45', tape: 'rgba(192,212,232,.65)' },
+  blue:   { top: '#d5e6f6', bottom: '#bcd6ee', text: '#2a4a6a', tape: 'rgba(240,196,196,.6)' },
+  green:  { top: '#dfeed2', bottom: '#c9e2b4', text: '#33531f', tape: 'rgba(232,168,184,.6)' },
+}
 
 interface Props {
   note: StickyNote
   onTextChange: (id: string, text: string) => void
   onRemove: (id: string) => void
-  /** start in edit mode (for freshly added notes) */
+  /** focus the textarea straight away (for freshly added notes) */
   autoFocus?: boolean
 }
 
 export function StickyNoteCard({ note, onTextChange, onRemove, autoFocus }: Props) {
-  const [editing, setEditing] = useState(!!autoFocus)
   const [draft, setDraft] = useState(note.text)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const c = STICKY_GRADIENTS[note.color] ?? STICKY_GRADIENTS.yellow
 
   useEffect(() => {
-    if (editing) {
+    if (autoFocus) {
       textareaRef.current?.focus()
       textareaRef.current?.setSelectionRange(draft.length, draft.length)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing])
+  }, [autoFocus])
 
   function commit() {
-    setEditing(false)
     // An empty note is clutter — remove it rather than leave a blank square pinned
     if (!draft.trim() && !note.text.trim()) {
       onRemove(note.id)
@@ -36,45 +41,37 @@ export function StickyNoteCard({ note, onTextChange, onRemove, autoFocus }: Prop
     if (draft !== note.text) onTextChange(note.id, draft)
   }
 
-  const c = STICKY_COLORS[note.color] ?? STICKY_COLORS.yellow
-
   return (
     <div
       className="sticky-note group"
-      style={{ background: c.bg, color: c.text }}
-      onDoubleClick={() => { setDraft(note.text); setEditing(true) }}
+      style={{ background: `linear-gradient(180deg, ${c.top}, ${c.bottom})`, color: c.text }}
     >
-      <div className="washi-tape" />
+      <span aria-hidden="true" className="washi-tape" style={{ background: c.tape }} />
 
       {/* delete */}
       <button
         onClick={(e) => { e.stopPropagation(); onRemove(note.id) }}
+        onPointerDown={(e) => e.stopPropagation()}
         aria-label="Delete note"
-        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-70 hover:!opacity-100 transition-opacity"
-        style={{ background: 'rgba(0,0,0,0.08)', color: c.text }}
+        className="absolute top-1 right-2 opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
+        style={{ fontSize: 14, color: c.text, lineHeight: 1 }}
       >
-        <X size={12} />
+        ×
       </button>
 
-      {editing ? (
-        <textarea
-          ref={textareaRef}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => { if (e.key === 'Escape' || (e.key === 'Enter' && e.metaKey)) commit() }}
-          onPointerDown={(e) => e.stopPropagation()}
-          rows={4}
-          maxLength={180}
-          placeholder="Write a note…"
-          className="w-full bg-transparent resize-none outline-none placeholder:opacity-40"
-          style={{ color: c.text, font: 'inherit', lineHeight: 'inherit' }}
-        />
-      ) : (
-        <p className="whitespace-pre-wrap break-words select-none min-h-[60px]">
-          {note.text || <span className="opacity-40">Double-click to write…</span>}
-        </p>
-      )}
+      <textarea
+        ref={textareaRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === 'Escape' || (e.key === 'Enter' && e.metaKey)) commit() }}
+        onPointerDown={(e) => e.stopPropagation()}
+        rows={4}
+        maxLength={180}
+        placeholder="Write a note…"
+        className="w-full bg-transparent resize-none outline-none placeholder:opacity-40 cursor-text"
+        style={{ color: c.text, font: 'inherit', lineHeight: 'inherit', minHeight: 90 }}
+      />
     </div>
   )
 }

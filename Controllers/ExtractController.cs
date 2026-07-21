@@ -24,6 +24,25 @@ public class ExtractController : ControllerBase
  public string? ManualCaption { get; set; }
  }
 
+ // Platforms the product supports. Without this, yt-dlp's ~1800 extractors let
+ // anyone make this server download video from (almost) anywhere on the internet.
+ private static readonly string[] AllowedDomains =
+ {
+ "tiktok.com", "instagram.com", "youtube.com", "youtu.be",
+ "twitter.com", "x.com", "facebook.com", "fb.watch",
+ "xiaohongshu.com", "xhslink.com",
+ };
+
+ private static bool IsAllowedUrl(string url)
+ {
+ if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return false;
+ if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return false;
+ var host = uri.Host;
+ return AllowedDomains.Any(d =>
+ host.Equals(d, StringComparison.OrdinalIgnoreCase) ||
+ host.EndsWith("." + d, StringComparison.OrdinalIgnoreCase));
+ }
+
  [HttpPost]
  public async Task<IActionResult> Extract([FromBody] ExtractRequest? request, CancellationToken cancellationToken)
  {
@@ -35,6 +54,11 @@ public class ExtractController : ControllerBase
  if (string.IsNullOrWhiteSpace(request.Url))
  {
  return BadRequest("Url is required.");
+ }
+
+ if (!IsAllowedUrl(request.Url))
+ {
+ return BadRequest("Only TikTok, Instagram, YouTube, X/Twitter, Facebook, and Xiaohongshu links are supported.");
  }
 
  try

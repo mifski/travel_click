@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import type { TripContext, PackingList, PackingCategory } from '@/lib/types'
 import { getDayCount, generateId } from '@/lib/utils'
+import { rateLimit } from '@/lib/api-guard'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, 'packing', 10)
+  if (limited) return limited
+
   const body = await req.json()
   const trip: TripContext = body.trip
 
@@ -13,7 +17,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Trip details required' }, { status: 400 })
   }
 
-  const days = Math.max(1, getDayCount(trip.startDate, trip.endDate))
+  const days = Math.min(60, Math.max(1, getDayCount(trip.startDate, trip.endDate)))
   const ageContext = trip.ageRanges.length ? `Group: ${trip.ageRanges.join(', ')}.` : 'Adults.'
 
   const prompt = `You are a travel-packing expert. Build a packing checklist for this trip:

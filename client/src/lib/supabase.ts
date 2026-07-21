@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { TravelCard } from './types'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
@@ -67,6 +68,26 @@ export interface DbCard {
   creator: string | null
   pin_position: { x: number; y: number; rotation: number }
   saved_at: string
+}
+
+/** Map a Supabase card row back into the local store shape (inverse of syncCardSave). */
+export function dbCardToTravelCard(row: DbCard): TravelCard {
+  return {
+    id: row.id,
+    tripId: row.trip_id,
+    source: row.source as TravelCard['source'],
+    title: row.title,
+    description: row.description,
+    location: (row.location_data ?? { nameEnglish: row.title, city: '', country: '' }) as unknown as TravelCard['location'],
+    imageUrl: row.image_url ?? undefined,
+    thumbnailUrl: row.thumbnail_url ?? undefined,
+    tags: row.tags ?? [],
+    confidence: (row.confidence ?? undefined) as TravelCard['confidence'],
+    sourceUrl: row.source_url ?? undefined,
+    creator: row.creator ?? undefined,
+    pinPosition: row.pin_position ?? { x: 40, y: 40, rotation: 0 },
+    savedAt: row.saved_at,
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

@@ -1,29 +1,71 @@
 'use client'
 
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Link, Plus, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useTripStore } from '@/lib/store'
-import { cn } from '@/lib/utils'
+import { toast } from '@/components/UI/Toaster'
+
+const EXTRACT_STEPS = [
+  'Fetching the video…',
+  'Watching frames for places…',
+  'Reading the caption…',
+  'Cross-checking the map…',
+]
 
 interface Props {
   tripId: string
+  open: boolean
+  onClose: () => void
 }
 
-export function LinkExtractor({ tripId }: Props) {
+/** Pin-a-link modal — paste a social link, watch the staged extraction, get cards on the board. */
+export function LinkExtractor({ tripId, open, onClose }: Props) {
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
+    <AnimatePresence>
+      {open && <PinDialog tripId={tripId} onClose={onClose} />}
+    </AnimatePresence>,
+    document.body
+  )
+}
+
+/* Mounts fresh on every open, so URL / caption / progress always start clean */
+function PinDialog({ tripId, onClose }: { tripId: string; onClose: () => void }) {
   const [url, setUrl] = useState('')
   const [caption, setCaption] = useState('')
   const [showCaption, setShowCaption] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [extracting, setExtracting] = useState(false)
+  const [statusLine, setStatusLine] = useState(EXTRACT_STEPS[0])
   const [error, setError] = useState('')
-  const [lastAdded, setLastAdded] = useState(0)
-
   const addCard = useTripStore((s) => s.addCard)
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.focus(), 60)
+    const cleanup = timers.current
+    return () => { clearTimeout(t); cleanup.forEach(clearTimeout) }
+  }, [])
+
+  function later(fn: () => void, ms: number) {
+    timers.current.push(setTimeout(fn, ms))
+  }
 
   async function handleExtract() {
-    if (!url.trim()) return
-    setLoading(true)
+    if (!url.trim() || extracting) return
+    setExtracting(true)
     setError('')
+
+    // Staged narration cycles while the real extraction runs
+    let step = 0
+    setStatusLine(EXTRACT_STEPS[0])
+    const cycle = setInterval(() => {
+      step = (step + 1) % EXTRACT_STEPS.length
+      setStatusLine(EXTRACT_STEPS[step])
+    }, 850)
+    timers.current.push(cycle as unknown as ReturnType<typeof setTimeout>)
 
     try {
       const res = await fetch('/api/extract', {
@@ -31,109 +73,177 @@ export function LinkExtractor({ tripId }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: url.trim(), manualCaption: caption || undefined, tripId }),
       })
-
       const data = await res.json()
+      clearInterval(cycle)
 
       if (!res.ok) {
+        setExtracting(false)
         setError(data.error ?? 'Extraction failed. Try adding a manual caption.')
         return
       }
 
-      const { cards } = data
-      if (!cards?.length) {
+      const cards = data.cards ?? []
+      if (!cards.length) {
+        setExtracting(false)
         setError('No places found. Add a caption describing the locations.')
         return
       }
 
-      for (const card of cards) addCard(tripId, card)
-      setLastAdded(cards.length)
-      setUrl('')
-      setCaption('')
-      setShowCaption(false)
-      setTimeout(() => setLastAdded(0), 3000)
+      // Land the last two beats, then pin for real
+      setStatusLine(`Found ${cards.length === 1 ? `one: ${cards[0].title}` : `${cards.length} places`} 📍`)
+      later(() => setStatusLine('Pinning to your board…'), 800)
+      later(() => {
+        for (const card of cards) addCard(tripId, card)
+        setExtracting(false)
+        onClose()
+        toast.success(`Pinned to your board 📌`)
+      }, 1400)
     } catch {
+      clearInterval(cycle)
+      setExtracting(false)
       setError('Failed to reach the extraction service. Make sure the backend is running.')
-    } finally {
-      setLoading(false)
     }
   }
 
   return (
-    <div className="bg-white/80 backdrop-blur-sm border border-amber-200 rounded-2xl p-5 shadow-sm">
-      <div className="flex items-center gap-2.5 mb-4">
-        <div className="w-8 h-8 rounded-full bg-[#c94040]/10 flex items-center justify-center">
-          <Link size={15} className="text-[#c94040]" />
+    <motion.div
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      style={{ background: 'rgba(32,18,9,.55)', backdropFilter: 'blur(3px)' }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      onClick={() => { if (!extracting) onClose() }}
+    >
+      <motion.div
+        className="w-full"
+        style={{
+          maxWidth: 460,
+          background: '#fffef9',
+          borderRadius: 16,
+          padding: '26px 28px',
+          boxShadow: '0 40px 90px -20px rgba(0,0,0,.6)',
+        }}
+        initial={{ scale: 0.94, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.94, y: 14 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-baseline justify-between">
+          <span className="font-display" style={{ fontWeight: 800, fontSize: 22, color: '#2c1810' }}>
+            Pin a link 🔗
+          </span>
+          <button
+            onClick={() => { if (!extracting) onClose() }}
+            aria-label="Close"
+            className="transition-colors hover:text-[#c94040]"
+            style={{ fontSize: 16, color: 'rgba(44,24,16,.4)' }}
+          >
+            ×
+          </button>
         </div>
-        <div>
-          <h3 className="font-bold text-[#2c1810] text-sm">Add Places from Links</h3>
-          <p className="text-xs text-amber-700/60">YouTube, TikTok, Instagram, or any article</p>
-        </div>
-      </div>
 
-      <div className="flex gap-2">
+        <p style={{ margin: '6px 0 16px', fontSize: 12.5, color: 'rgba(44,24,16,.55)', lineHeight: 1.5 }}>
+          Paste a TikTok, YouTube, IG or article link — we watch it and extract the places.
+        </p>
+
         <input
+          ref={inputRef}
           type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleExtract()}
-          placeholder="Paste a URL…"
-          className="flex-1 bg-amber-50/60 border border-amber-200 rounded-xl px-4 py-3 text-sm text-[#2c1810] placeholder-amber-700/35 focus:outline-none focus:border-amber-400 focus:bg-white transition-colors"
+          disabled={extracting}
+          placeholder="https://www.tiktok.com/@tokyo.wanders/video/…"
+          className="w-full focus:outline-none"
+          style={{
+            boxSizing: 'border-box',
+            padding: '12px 14px',
+            border: '1.5px solid rgba(44,24,16,.18)',
+            borderRadius: 10,
+            background: '#faf6f0',
+            fontSize: 13,
+            color: '#2c1810',
+          }}
         />
-        <motion.button
-          onClick={handleExtract}
-          disabled={loading || !url.trim()}
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          className={cn(
-            'px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all shadow-md whitespace-nowrap shrink-0',
-            loading || !url.trim()
-              ? 'bg-amber-100 text-amber-400 cursor-not-allowed shadow-none'
-              : 'text-white shadow-red-200 hover:opacity-90'
-          )}
-          style={loading || !url.trim() ? {} : { background: 'linear-gradient(135deg, #c94040, #e05555)' }}
-        >
-          {loading ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
-          {loading ? 'Extracting…' : 'Pin It'}
-        </motion.button>
-      </div>
 
-      <button
-        type="button"
-        onClick={() => setShowCaption((v) => !v)}
-        className="text-xs text-amber-700/45 hover:text-amber-700 mt-2 transition-colors"
-      >
-        {showCaption ? '− Hide caption' : '+ Add caption (helps AI)'}
-      </button>
+        {!extracting && (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowCaption((v) => !v)}
+              className="font-hand transition-colors hover:text-[#a86030]"
+              style={{ marginTop: 8, fontSize: 16, color: 'rgba(44,24,16,.45)' }}
+            >
+              {showCaption ? '− hide caption' : '+ add a caption (helps the AI)'}
+            </button>
+            {showCaption && (
+              <textarea
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                placeholder="Describe the location shown in the video…"
+                rows={2}
+                className="w-full mt-2 resize-none focus:outline-none"
+                style={{
+                  padding: '10px 14px',
+                  border: '1.5px solid rgba(44,24,16,.14)',
+                  borderRadius: 10,
+                  background: '#faf6f0',
+                  fontSize: 13,
+                  color: '#2c1810',
+                }}
+              />
+            )}
+          </>
+        )}
 
-      {showCaption && (
-        <textarea
-          value={caption}
-          onChange={(e) => setCaption(e.target.value)}
-          placeholder="Describe the location shown in the video…"
-          rows={2}
-          className="w-full mt-2 bg-amber-50/60 border border-amber-200 rounded-xl px-4 py-3 text-sm text-[#2c1810] placeholder-amber-700/30 focus:outline-none focus:border-amber-400 resize-none"
-        />
-      )}
+        {extracting && (
+          <div className="flex items-center gap-2.5" style={{ marginTop: 16 }}>
+            <span
+              className="tc-spinner"
+              style={{ width: 18, height: 18, border: '2.5px solid rgba(201,64,64,.25)', borderTopColor: '#c94040' }}
+            />
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={statusLine}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.18 }}
+                className="font-hand"
+                style={{ fontSize: 18, color: '#a86030' }}
+              >
+                {statusLine}
+              </motion.span>
+            </AnimatePresence>
+          </div>
+        )}
 
-      {error && (
-        <div className="flex items-start gap-2 mt-3 p-3 bg-red-50 border border-red-200 rounded-xl">
-          <AlertCircle size={14} className="text-red-400 mt-0.5 shrink-0" />
-          <p className="text-xs text-red-700">{error}</p>
-        </div>
-      )}
-
-      {lastAdded > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-3 p-3 bg-[#c8dcc0]/40 border border-[#6b8f5e]/30 rounded-xl flex items-center gap-2"
-        >
-          <CheckCircle2 size={14} className="text-[#6b8f5e]" />
-          <p className="text-xs text-[#3a6030] font-semibold">
-            {lastAdded} place{lastAdded > 1 ? 's' : ''} pinned to your board!
+        {error && (
+          <p style={{ marginTop: 12, fontSize: 12, color: '#a12f2f', lineHeight: 1.5 }}>
+            {error}
           </p>
-        </motion.div>
-      )}
-    </div>
+        )}
+
+        <div className="flex justify-end items-center gap-2.5" style={{ marginTop: 18 }}>
+          <button
+            onClick={() => { if (!extracting) onClose() }}
+            className="rounded-full transition-colors hover:text-[#2c1810]"
+            style={{ padding: '10px 18px', color: 'rgba(44,24,16,.55)', fontSize: 12.5 }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleExtract}
+            disabled={extracting || !url.trim()}
+            className="pill-coral pill-lift rounded-full font-semibold disabled:opacity-50"
+            style={{ padding: '10px 22px', fontSize: 12.5 }}
+          >
+            {extracting ? 'Extracting…' : '✦ Extract places'}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
   )
 }

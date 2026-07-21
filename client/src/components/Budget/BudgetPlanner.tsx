@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Wallet, ExternalLink, Plane, BedDouble, UtensilsCrossed } from 'lucide-react'
+import { ExternalLink, Plane, BedDouble, UtensilsCrossed } from 'lucide-react'
 import type { TripContext, PriceRange } from '@/lib/types'
 import { useTripStore } from '@/lib/store'
 import { getDayCount, googleFlightsUrl, cn } from '@/lib/utils'
@@ -48,18 +48,18 @@ export function BudgetPlanner({ trip }: Props) {
   const inputCls = 'w-full bg-amber-50/60 border border-amber-200 rounded-xl px-3 py-2 text-sm text-[#2c1810] placeholder-amber-700/35 focus:outline-none focus:border-[#c9a84c] focus:bg-white transition-colors'
 
   return (
-    <div className="bg-white/80 backdrop-blur-sm border border-amber-200 rounded-2xl p-5 shadow-sm">
+    <div>
       <div className="flex items-center justify-between mb-1 gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Wallet size={16} className="text-[#c9a84c]" />
-          <h3 className="font-bold text-[#2c1810] text-sm">Budget Guardrail</h3>
-        </div>
+        <span className="uppercase font-semibold" style={{ fontSize: 11, letterSpacing: '.18em', color: '#c9a84c' }}>
+          Projected total vs your budget
+        </span>
         <a href={googleFlightsUrl(trip.destination, trip.startDate)} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-amber-300 text-amber-800 bg-white hover:bg-amber-50 transition-colors">
+          className="flex items-center gap-1.5 rounded-full text-xs font-semibold transition-colors hover:text-[#2c1810]"
+          style={{ padding: '7px 14px', border: '1px solid rgba(44,24,16,.18)', color: 'rgba(44,24,16,.6)' }}>
           <ExternalLink size={11} /> Search flights
         </a>
       </div>
-      <p className="text-xs text-amber-700/60 mb-4">Projected trip total vs your budget — updates as you plan</p>
+      <p className="font-hand mb-4" style={{ fontSize: 16, color: 'rgba(44,24,16,.5)' }}>updates as you plan ✏️</p>
 
       {/* Inputs */}
       <div className="grid grid-cols-2 gap-3 mb-4">

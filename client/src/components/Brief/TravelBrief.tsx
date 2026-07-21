@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Loader2, Copy, Check, RefreshCw, Stamp } from 'lucide-react'
+import { Loader2, Copy, Check, RefreshCw } from 'lucide-react'
 import type { TripContext } from '@/lib/types'
 import { useTripStore } from '@/lib/store'
 import { toast } from '@/components/UI/Toaster'
@@ -44,29 +44,26 @@ export function TravelBrief({ trip }: Props) {
   }
 
   return (
-    <div className="bg-white/80 backdrop-blur-sm border border-amber-200 rounded-2xl p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-2">
-          <Stamp size={16} className="text-[#7e9ab5]" />
-          <h3 className="font-bold text-[#2c1810] text-sm">Destination Brief</h3>
-        </div>
+    <div>
+      <div className="flex items-center justify-between mb-1 gap-3">
+        <span className="uppercase font-semibold" style={{ fontSize: 11, letterSpacing: '.18em', color: '#7e9ab5' }}>
+          Currency · phrases · etiquette
+        </span>
         <button
           onClick={generate}
           disabled={loading}
-          className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${
-            loading
-              ? 'bg-amber-100 text-amber-400 cursor-not-allowed'
-              : brief
-              ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
-              : 'text-white shadow-md hover:opacity-90'
+          className={`rounded-full text-sm font-semibold flex items-center gap-2 disabled:opacity-60 ${
+            brief && !loading ? 'transition-colors hover:text-[#2c1810]' : 'pill-coral pill-lift'
           }`}
-          style={!loading && !brief ? { background: '#7e9ab5' } : {}}
+          style={brief && !loading
+            ? { padding: '9px 18px', border: '1px solid rgba(44,24,16,.18)', color: 'rgba(44,24,16,.6)' }
+            : { padding: '9px 18px' }}
         >
           {loading ? <Loader2 size={14} className="animate-spin" /> : brief ? <RefreshCw size={13} /> : null}
-          {loading ? 'Researching…' : brief ? 'Refresh' : 'Get the Brief'}
+          {loading ? 'Researching…' : brief ? 'Refresh' : '✦ Get the brief'}
         </button>
       </div>
-      <p className="text-xs text-amber-700/60 mb-4">Currency, phrases, etiquette & local know-how</p>
+      <p className="font-hand mb-4" style={{ fontSize: 16, color: 'rgba(44,24,16,.5)' }}>everything to know before landing ✈</p>
 
       {!brief && !loading && (
         <p className="text-center text-amber-800/40 text-sm py-4">

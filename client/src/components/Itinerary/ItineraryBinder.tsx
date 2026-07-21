@@ -1,36 +1,29 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { GeneratedItinerary, ItineraryDay, ItineraryTimeBlock } from '@/lib/types'
-import { cn, googleMapsUrl } from '@/lib/utils'
-import { Clock, MapPin, Utensils, Navigation, Info, Sparkles, ExternalLink, Wallet } from 'lucide-react'
+import type { GeneratedItinerary, ItineraryDay, ItineraryTimeBlock, TravelCard } from '@/lib/types'
+import { googleMapsUrl } from '@/lib/utils'
+import { Clock, MapPin, Utensils, Navigation, Info, Wallet } from 'lucide-react'
 
-/* ── Per-category styling ── */
+/* ═══════════════ Print view (light, flat document) ═══════════════ */
+
 const CAT: Record<ItineraryTimeBlock['category'], {
-  Icon: React.ElementType; dot: string; bg: string; border: string; label: string; accent: string
+  Icon: React.ElementType; dot: string; bg: string; border: string; label: string
 }> = {
-  activity:  { Icon: MapPin,      dot: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe', label: 'Activity', accent: '#3b82f6' },
-  meal:      { Icon: Utensils,    dot: '#f97316', bg: '#fff7ed', border: '#fed7aa', label: 'Meal',     accent: '#f97316' },
-  transport: { Icon: Navigation,  dot: '#94a3b8', bg: '#f8fafc', border: '#e2e8f0', label: 'Transit',  accent: '#94a3b8' },
-  rest:      { Icon: Clock,       dot: '#10b981', bg: '#f0fdf4', border: '#bbf7d0', label: 'Rest',     accent: '#10b981' },
+  activity:  { Icon: MapPin,      dot: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe', label: 'Activity' },
+  meal:      { Icon: Utensils,    dot: '#f97316', bg: '#fff7ed', border: '#fed7aa', label: 'Meal' },
+  transport: { Icon: Navigation,  dot: '#94a3b8', bg: '#f8fafc', border: '#e2e8f0', label: 'Transit' },
+  rest:      { Icon: Clock,       dot: '#10b981', bg: '#f0fdf4', border: '#bbf7d0', label: 'Rest' },
 }
 
-/* Cycling palette for day tabs — inspired by moodboard */
-const DAY_COLORS = ['#c94040','#e07040','#6b8f5e','#7e9ab5','#9b72bf','#c98040','#3a7a7a','#c94080']
+const DAY_COLORS = ['#c94040', '#a86030', '#6b8f5e', '#7e9ab5', '#c9a84c', '#9b72bf', '#3a7a7a', '#c94080']
 
-const MEAL_INFO = {
-  breakfast: { icon: '🌅', label: 'Breakfast', bg: '#fff7ed', border: '#fed7aa', text: '#9a3412' },
-  lunch:     { icon: '☀️', label: 'Lunch',     bg: '#fefce8', border: '#fde68a', text: '#713f12' },
-  dinner:    { icon: '🌙', label: 'Dinner',    bg: '#f5f3ff', border: '#ddd6fe', text: '#4c1d95' },
-}
-
-/* ── Single activity row ── */
-function TimeBlock({ block, destination }: { block: ItineraryTimeBlock; destination: string }) {
+function PrintTimeBlock({ block, destination }: { block: ItineraryTimeBlock; destination: string }) {
   const c = CAT[block.category] ?? CAT.activity
   return (
     <div
-      className="flex gap-3 p-3 rounded-xl border mb-2 last:mb-0 hover:shadow-sm transition-shadow group"
+      className="flex gap-3 p-3 rounded-xl border mb-2 last:mb-0"
       style={{ background: c.bg, borderColor: c.border, borderLeftWidth: 3, borderLeftColor: c.dot }}
     >
       <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5 w-14">
@@ -43,12 +36,10 @@ function TimeBlock({ block, destination }: { block: ItineraryTimeBlock; destinat
           href={googleMapsUrl(block.place, destination)}
           target="_blank"
           rel="noopener noreferrer"
-          title="Open in Google Maps"
-          className="inline-flex items-center gap-1 mt-0.5 rounded hover:underline decoration-amber-400 underline-offset-2"
+          className="inline-flex items-center gap-1 mt-0.5"
         >
           <MapPin size={9} className="text-amber-600 shrink-0" />
           <span className="text-[11px] text-amber-800 truncate">{block.place}</span>
-          <ExternalLink size={8} className="text-amber-500 opacity-0 group-hover:opacity-70 transition-opacity shrink-0 print:hidden" />
         </a>
         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
           <span className="text-[10px] text-slate-500">⏱ {block.duration}</span>
@@ -58,243 +49,297 @@ function TimeBlock({ block, destination }: { block: ItineraryTimeBlock; destinat
             </span>
           )}
         </div>
-        {block.notes && (
-          <p className="text-[11px] text-slate-500 mt-1 italic">{block.notes}</p>
-        )}
+        {block.notes && <p className="text-[11px] text-slate-500 mt-1 italic">{block.notes}</p>}
       </div>
     </div>
   )
 }
 
-/* ── Period divider ── */
-function PeriodLabel({ icon, title, color }: { icon: string; title: string; color: string }) {
-  return (
-    <div className="flex items-center gap-2 mt-5 mb-2 first:mt-0">
-      <span className="text-sm">{icon}</span>
-      <span className="text-[10px] font-black uppercase tracking-[0.15em]" style={{ color }}>{title}</span>
-      <div className="flex-1 h-px" style={{ background: `${color}40` }} />
-    </div>
-  )
-}
-
-/* ── Full day page (shared between binder + print view) ── */
+/** Flat light day page — used by the print/PDF export */
 export function DayPage({ day, accentColor, destination }: { day: ItineraryDay; accentColor: string; destination: string }) {
+  const sections: [string, ItineraryTimeBlock[]][] = [
+    ['Morning', day.morning ?? []],
+    ['Afternoon', day.afternoon ?? []],
+    ['Evening', day.evening ?? []],
+  ]
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="min-h-full p-6 paper-texture" style={{ background: 'linear-gradient(180deg, #fffef9 0%, #fdf9f0 100%)' }}>
-
-        {/* ── DAY header (travel-journal style) ── */}
-        <div className="mb-6 pb-5 border-b-2" style={{ borderColor: `${accentColor}30` }}>
-          <div className="flex items-start gap-4">
-            {/* Bold day block */}
-            <div className="shrink-0 text-right">
-              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: accentColor }}>Day</p>
-              <p className="text-5xl font-black leading-none" style={{ color: accentColor, fontFamily: 'var(--font-playfair, Georgia, serif)' }}>
-                {String(day.day).padStart(2, '0')}
-              </p>
-            </div>
-            <div className="flex-1 pt-1">
-              <h2 className="font-bold text-xl text-[#1a0f00] leading-tight" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>
-                {day.theme}
-              </h2>
-              <p className="text-xs text-amber-700/60 font-mono mt-0.5">{day.date}</p>
-              {day.estimatedCost && (
-                <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border"
-                  style={{ color: accentColor, borderColor: `${accentColor}50`, background: `${accentColor}0d` }}>
-                  <Wallet size={9} />
-                  {day.estimatedCost}
-                </span>
-              )}
-            </div>
-            <div className="stamp shrink-0 mt-1" style={{ color: accentColor }}>
-              Day {day.day}
-            </div>
-          </div>
-
-          {/* Meals row */}
-          {day.meals && (
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              {(['breakfast', 'lunch', 'dinner'] as const).map((m) => {
-                const info = MEAL_INFO[m]
-                return day.meals[m] ? (
-                  <div key={m} className="rounded-xl px-2.5 py-2 border" style={{ background: info.bg, borderColor: info.border }}>
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <span className="text-xs">{info.icon}</span>
-                      <span className="text-[8px] font-black uppercase tracking-wide" style={{ color: info.text }}>{info.label}</span>
-                    </div>
-                    <p className="text-[10px] font-semibold leading-tight" style={{ color: info.text }}>{day.meals[m]}</p>
-                  </div>
-                ) : null
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ── Activity blocks ── */}
-        {day.morning?.length > 0 && (
-          <>
-            <PeriodLabel icon="☀️" title="Morning" color="#e07040" />
-            {day.morning.map((b, i) => <TimeBlock key={i} block={b} destination={destination} />)}
-          </>
-        )}
-        {day.afternoon?.length > 0 && (
-          <>
-            <PeriodLabel icon="🌤️" title="Afternoon" color="#c9a020" />
-            {day.afternoon.map((b, i) => <TimeBlock key={i} block={b} destination={destination} />)}
-          </>
-        )}
-        {day.evening?.length > 0 && (
-          <>
-            <PeriodLabel icon="🌙" title="Evening" color="#7e6bb5" />
-            {day.evening.map((b, i) => <TimeBlock key={i} block={b} destination={destination} />)}
-          </>
-        )}
-
-        {/* ── Tips ── */}
-        {day.travelTips?.length > 0 && (
-          <div className="mt-5 p-4 rounded-xl border border-[#c0d4e8] bg-[#eff6ff]">
-            <div className="flex items-center gap-2 mb-2">
-              <Info size={12} className="text-[#7e9ab5]" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-[#3a5f7a]">Tips for today</p>
-            </div>
-            {day.travelTips.map((tip, i) => (
-              <p key={i} className="text-xs text-[#3a5f7a] leading-relaxed mb-1">• {tip}</p>
-            ))}
-          </div>
+    <div className="p-6 paper-texture" style={{ background: '#fffef9' }}>
+      <div className="mb-4 pb-3 border-b-2" style={{ borderColor: `${accentColor}30` }}>
+        <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: accentColor }}>Day {day.day}</p>
+        <h2 className="font-bold text-xl text-[#1a0f00] leading-tight" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>
+          {day.theme}
+        </h2>
+        <p className="text-xs text-amber-700/60 font-mono mt-0.5">{day.date}</p>
+        {day.estimatedCost && (
+          <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border"
+            style={{ color: accentColor, borderColor: `${accentColor}50` }}>
+            <Wallet size={9} />
+            {day.estimatedCost}
+          </span>
         )}
       </div>
+      {sections.map(([label, blocks]) => blocks.length > 0 && (
+        <div key={label}>
+          <div className="flex items-center gap-2 mt-4 mb-2 first:mt-0">
+            <span className="text-[10px] font-black uppercase tracking-[0.15em]" style={{ color: accentColor }}>{label}</span>
+            <div className="flex-1 h-px" style={{ background: `${accentColor}40` }} />
+          </div>
+          {blocks.map((b, i) => <PrintTimeBlock key={i} block={b} destination={destination} />)}
+        </div>
+      ))}
+      {day.travelTips?.length > 0 && (
+        <div className="mt-4 p-3 rounded-xl border border-[#c0d4e8] bg-[#eff6ff]">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Info size={12} className="text-[#7e9ab5]" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#3a5f7a]">Tips for today</p>
+          </div>
+          {day.travelTips.map((tip, i) => (
+            <p key={i} className="text-xs text-[#3a5f7a] leading-relaxed mb-1">• {tip}</p>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
 export { DAY_COLORS }
 
-/* ── Main binder component ── */
-interface Props { itinerary: GeneratedItinerary }
+/* ═══════════════ Dark espresso binder (screen) ═══════════════ */
 
-export function ItineraryBinder({ itinerary }: Props) {
-  const [activeDay, setActiveDay] = useState(0)
-  const [direction, setDirection] = useState(0)
+const cream = (a: number) => `rgba(242,234,216,${a})`
 
-  function goToDay(idx: number) {
-    setDirection(idx > activeDay ? 1 : -1)
-    setActiveDay(idx)
+/** Flatten a day's periods into one timeline */
+function dayBlocks(day: ItineraryDay): ItineraryTimeBlock[] {
+  return [...(day.morning ?? []), ...(day.afternoon ?? []), ...(day.evening ?? [])]
+}
+
+/** Pick up to 2 photo prints for a day from the board's pinned cards */
+function pickPrints(day: ItineraryDay, dayIndex: number, cards: TravelCard[]): { card: TravelCard; time?: string }[] {
+  const withImages = cards.filter((c) => c.imageUrl || c.thumbnailUrl)
+  if (!withImages.length) return []
+
+  const blocks = dayBlocks(day)
+  const haystack = blocks.map((b) => `${b.place} ${b.activity}`.toLowerCase())
+  const matched: { card: TravelCard; time?: string }[] = []
+
+  for (const card of withImages) {
+    if (matched.length >= 2) break
+    const tokens = (card.location.nameEnglish || card.title)
+      .toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 3)
+    const hit = haystack.findIndex((h) => tokens.some((t) => h.includes(t)))
+    if (hit >= 0) matched.push({ card, time: blocks[hit].time })
   }
-
-  const pageVariants = {
-    enter: (d: number) => ({ x: d > 0 ? '55%' : '-55%', opacity: 0 }),
-    center: { x: 0, opacity: 1 },
-    exit: (d: number) => ({ x: d > 0 ? '-35%' : '35%', opacity: 0 }),
+  // Fill from remaining image cards, cycled by day so each spread looks different
+  let cursor = dayIndex * 2
+  while (matched.length < 2 && matched.length < withImages.length) {
+    const candidate = withImages[cursor % withImages.length]
+    cursor++
+    if (!matched.some((m) => m.card.id === candidate.id)) matched.push({ card: candidate })
   }
+  return matched
+}
 
-  const activeColor = DAY_COLORS[activeDay % DAY_COLORS.length]
+const PRINT_POS: React.CSSProperties[] = [
+  { position: 'absolute', left: 0, top: 6, width: 290, transform: 'rotate(-2deg)' },
+  { position: 'absolute', left: 130, top: 238, width: 270, transform: 'rotate(2.2deg)' },
+]
+
+interface Props {
+  itinerary: GeneratedItinerary
+  cards: TravelCard[]
+  activeDay: number
+  onDayChange: (idx: number) => void
+  onRefine: (instructions: string) => void
+  refining: boolean
+}
+
+export function ItineraryBinder({ itinerary, cards, activeDay, onDayChange, onRefine, refining }: Props) {
+  const [refineText, setRefineText] = useState('')
+  const day = itinerary.days[Math.min(activeDay, itinerary.days.length - 1)]
+  const blocks = dayBlocks(day)
+  const prints = useMemo(() => pickPrints(day, activeDay, cards), [day, activeDay, cards])
+
+  function submitRefine() {
+    if (!refineText.trim() || refining) return
+    onRefine(refineText.trim())
+    setRefineText('')
+  }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 rounded-2xl overflow-hidden border border-amber-200 shadow-lg">
-
-      {/* ── Binder spine / cover ── */}
-      <div className="px-6 py-5" style={{ background: 'linear-gradient(135deg, #78350f 0%, #92400e 60%, #78350f 100%)' }}>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-amber-300/60 text-[10px] uppercase tracking-widest font-bold mb-0.5">Trip Itinerary</p>
-            <h2
-              className="text-white font-bold text-2xl leading-tight"
-              style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}
-            >
-              {itinerary.destination}
-            </h2>
-          </div>
-          <div className="flex flex-col items-end gap-1.5">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.12)' }}>
-              <Sparkles size={12} className="text-amber-300" />
-              <span className="text-[11px] text-amber-200 font-semibold">AI-generated</span>
-            </div>
-            {itinerary.totalEstimatedCost && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.12)' }}>
-                <Wallet size={11} className="text-amber-300" />
-                <span className="text-[11px] text-amber-200 font-semibold">{itinerary.totalEstimatedCost}</span>
-              </div>
-            )}
-          </div>
-        </div>
-        <p className="text-amber-100/55 text-xs mt-2.5 leading-relaxed line-clamp-2">{itinerary.overview}</p>
-      </div>
-
-      {/* Rings */}
-      <div className="flex items-center justify-around px-8 py-2.5" style={{ background: '#3b2010' }}>
-        {Array.from({ length: 7 }).map((_, i) => <div key={i} className="binder-ring" />)}
-      </div>
-
+    <>
       {/* ── Day tabs ── */}
-      <div className="flex overflow-x-auto gap-0 px-2 pt-2.5 shrink-0" style={{ background: '#f0e4c8' }}>
-        {itinerary.days.map((day, i) => {
-          const color = DAY_COLORS[i % DAY_COLORS.length]
-          const isActive = activeDay === i
+      <div className="flex items-center flex-wrap" style={{ gap: 8, padding: '22px 40px 0' }}>
+        {itinerary.days.map((d, i) => {
+          const active = i === activeDay
+          const short = d.theme.split(/[:—–]/)[0].trim()
+          const label = `Day ${d.day} · ${short.length > 16 ? `${short.slice(0, 15)}…` : short}`
           return (
             <button
               key={i}
-              onClick={() => goToDay(i)}
-              className={cn('day-tab shrink-0 transition-all', isActive ? 'text-white shadow-md' : 'text-amber-700/60 hover:text-amber-800')}
-              style={isActive
-                ? { background: color, borderColor: `${color}80` }
-                : { background: '#e8d5b0', borderColor: '#c8a870' }
-              }
+              onClick={() => onDayChange(i)}
+              className={active ? 'pill-gold rounded-full font-bold' : 'rounded-full transition-colors'}
+              style={active
+                ? { padding: '9px 20px', fontSize: 12.5, cursor: 'pointer' }
+                : { padding: '9px 20px', fontSize: 12.5, border: `1px solid ${cream(0.2)}`, color: cream(0.65), cursor: 'pointer' }}
+              onMouseEnter={(e) => { if (!active) e.currentTarget.style.borderColor = '#c9a84c' }}
+              onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = cream(0.2) }}
             >
-              <span className="block text-[9px] opacity-70 font-semibold">DAY</span>
-              <span className="font-black">{String(day.day).padStart(2, '0')}</span>
+              {label}
             </button>
           )
         })}
+        {day.estimatedCost && (
+          <span className="ml-auto" style={{ fontSize: 11.5, color: cream(0.45) }}>
+            Day est. <span style={{ color: '#c9a84c', fontWeight: 700 }}>{day.estimatedCost}</span>
+          </span>
+        )}
       </div>
 
-      {/* ── Page content ── */}
-      <div className="flex-1 relative overflow-hidden min-h-[420px]" style={{ background: '#fffef9', perspective: '800px' }}>
-        <AnimatePresence custom={direction} mode="wait">
-          <motion.div
-            key={activeDay}
-            custom={direction}
-            variants={pageVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-            className="absolute inset-0"
-          >
-            <DayPage day={itinerary.days[activeDay]} accentColor={activeColor} destination={itinerary.destination} />
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      {/* ── Navigation ── */}
-      <div className="flex justify-between items-center px-6 py-3 border-t" style={{ background: '#f0e4c8', borderColor: '#d4b88a' }}>
-        <button
-          onClick={() => activeDay > 0 && goToDay(activeDay - 1)}
-          disabled={activeDay === 0}
-          className="px-4 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-30 transition-all hover:opacity-90"
-          style={{ background: DAY_COLORS[(activeDay - 1 + DAY_COLORS.length) % DAY_COLORS.length] }}
+      {/* ── Day spread ── */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeDay}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.22 }}
+          className="flex flex-wrap"
+          style={{ gap: 36, padding: '26px 40px 0' }}
         >
-          ← Previous
-        </button>
-        <div className="flex items-center gap-2">
-          {itinerary.days.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => goToDay(i)}
-              aria-label={`Go to day ${i + 1}`}
-              className="w-2 h-2 rounded-full transition-all"
-              style={{ background: i === activeDay ? activeColor : '#c8a870', transform: i === activeDay ? 'scale(1.4)' : 'scale(1)' }}
+          {/* Timeline */}
+          <div className="relative flex-1" style={{ paddingLeft: 26, minWidth: 320 }}>
+            <span
+              aria-hidden="true"
+              className="absolute"
+              style={{ left: 5, top: 8, bottom: 8, width: 1, background: 'linear-gradient(180deg, rgba(201,168,76,.6), rgba(201,168,76,.1))' }}
             />
-          ))}
-        </div>
-        <button
-          onClick={() => activeDay < itinerary.days.length - 1 && goToDay(activeDay + 1)}
-          disabled={activeDay === itinerary.days.length - 1}
-          className="px-4 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-30 transition-all hover:opacity-90"
-          style={{ background: DAY_COLORS[(activeDay + 1) % DAY_COLORS.length] }}
-        >
-          Next →
-        </button>
-      </div>
-    </div>
+
+            {blocks.map((block, i) => (
+              <div key={i} className="relative" style={{ marginBottom: 26 }}>
+                <span
+                  aria-hidden="true"
+                  className="absolute rounded-full"
+                  style={i === 0
+                    ? { left: -26, top: 5, width: 11, height: 11, background: '#c9a84c', boxShadow: '0 0 12px rgba(201,168,76,.6)' }
+                    : { left: -26, top: 5, width: 11, height: 11, border: '2px solid rgba(201,168,76,.5)', background: '#201209', boxSizing: 'border-box' }}
+                />
+                <div className="flex items-baseline flex-wrap" style={{ gap: 12 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.14em', color: '#c9a84c' }}>
+                    {block.time}
+                  </span>
+                  <span className="font-display" style={{ fontWeight: 700, fontSize: 21, color: '#f2ead8' }}>
+                    {block.activity}
+                  </span>
+                </div>
+                {block.notes && (
+                  <p style={{ margin: '6px 0 0', fontSize: 12.5, lineHeight: 1.6, color: cream(0.6), maxWidth: 430 }}>
+                    {block.notes}
+                  </p>
+                )}
+                <div className="flex items-baseline" style={{ gap: 14, marginTop: 8, fontSize: 11 }}>
+                  <a
+                    href={googleMapsUrl(block.place, itinerary.destination)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="transition-colors hover:text-[#f2ead8]"
+                    style={{ color: '#c9a84c', textDecoration: 'none', borderBottom: '1px dotted rgba(201,168,76,.5)' }}
+                    title={block.place}
+                  >
+                    Open in Maps ↗
+                  </a>
+                  <span style={{ color: cream(0.45) }}>{block.duration}</span>
+                  {block.bookingRequired && (
+                    <span style={{ color: '#c9a84c', fontWeight: 700, letterSpacing: '.08em', fontSize: 9.5 }}>BOOK AHEAD</span>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* Tips for the day */}
+            {day.travelTips?.length > 0 && (
+              <div style={{ marginTop: 4, maxWidth: 460 }}>
+                <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '.2em', color: 'rgba(201,168,76,.7)' }}>TIPS</span>
+                {day.travelTips.map((tip, i) => (
+                  <p key={i} style={{ margin: '4px 0 0', fontSize: 11.5, lineHeight: 1.55, color: cream(0.5) }}>
+                    {tip}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {/* Refine bar */}
+            <div className="flex" style={{ gap: 10, marginTop: 26, maxWidth: 500 }}>
+              <input
+                value={refineText}
+                onChange={(e) => setRefineText(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && submitRefine()}
+                disabled={refining}
+                placeholder='refine this day — "more street food, no museums…"'
+                className="font-hand flex-1 focus:outline-none"
+                style={{
+                  padding: '11px 18px',
+                  borderRadius: 999,
+                  border: `1px dashed ${cream(0.3)}`,
+                  background: 'transparent',
+                  color: '#f2ead8',
+                  fontSize: 17,
+                }}
+              />
+              <button
+                onClick={submitRefine}
+                disabled={refining || !refineText.trim()}
+                className="pill-gold pill-lift self-center rounded-full font-bold whitespace-nowrap disabled:opacity-60"
+                style={{ padding: '11px 22px', fontSize: 12.5 }}
+              >
+                {refining ? 'Refining…' : '✦ Refine'}
+              </button>
+            </div>
+          </div>
+
+          {/* Prints column */}
+          <div className="relative hidden lg:block" style={{ width: 420, minHeight: 540 }}>
+            {prints.map((p, i) => (
+              <div
+                key={p.card.id}
+                className="transition-transform hover:-translate-y-1.5"
+                style={{
+                  ...PRINT_POS[i] ?? PRINT_POS[1],
+                  background: '#f2ead8',
+                  padding: '11px 11px 15px',
+                  borderRadius: 3,
+                  boxShadow: i === 0
+                    ? '0 30px 60px -12px rgba(0,0,0,.7), 0 0 40px -10px rgba(201,168,76,.2)'
+                    : '0 30px 60px -12px rgba(0,0,0,.7)',
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={p.card.imageUrl ?? p.card.thumbnailUrl}
+                  alt={p.card.location.nameEnglish || p.card.title}
+                  draggable={false}
+                  className="block w-full object-cover"
+                  style={{ height: i === 0 ? 195 : 230 }}
+                />
+                <div className="flex justify-between items-baseline" style={{ marginTop: 10, padding: '0 3px' }}>
+                  <span className="font-display truncate" style={{ fontWeight: 700, fontSize: 15, color: '#2c1810' }}>
+                    {p.time ? `${p.time} — ` : ''}{p.card.location.nameEnglish || p.card.title}
+                  </span>
+                  <span className="shrink-0" style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.12em', color: '#a86030', marginLeft: 8 }}>
+                    № 0{i + 1}
+                  </span>
+                </div>
+              </div>
+            ))}
+            <div
+              aria-hidden="true"
+              className="font-hand absolute"
+              style={{ left: 36, top: 492, fontSize: 21, color: cream(0.6), transform: 'rotate(-2deg)', maxWidth: 340 }}
+            >
+              {day.theme.toLowerCase()}
+            </div>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    </>
   )
 }

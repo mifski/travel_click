@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Loader2, RefreshCw, Luggage, Check } from 'lucide-react'
+import { Loader2, RefreshCw, Check } from 'lucide-react'
 import type { TripContext } from '@/lib/types'
 import { useTripStore } from '@/lib/store'
 import { toast } from '@/components/UI/Toaster'
@@ -43,19 +43,15 @@ export function PackingList({ trip }: Props) {
   const pct = total ? Math.round((packed / total) * 100) : 0
 
   return (
-    <div className="bg-white/80 backdrop-blur-sm border border-amber-200 rounded-2xl p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-2">
-          <Luggage size={16} className="text-[#6b8f5e]" />
-          <h3 className="font-bold text-[#2c1810] text-sm">Packing List</h3>
+    <div>
+      <div className="flex items-center justify-between mb-1 gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="uppercase font-semibold" style={{ fontSize: 11, letterSpacing: '.18em', color: '#6b8f5e' }}>
+            Tailored to your dates &amp; weather
+          </span>
           {total > 0 && (
-            <span className={cn(
-              'text-[10px] px-2 py-0.5 rounded-full font-bold border',
-              pct === 100
-                ? 'bg-[#c8dcc0]/60 text-[#3a6030] border-[#6b8f5e]/40'
-                : 'bg-amber-50 text-amber-700 border-amber-200'
-            )}>
-              {pct === 100 ? '🎉 All packed!' : `${packed}/${total} packed`}
+            <span className="font-hand" style={{ fontSize: 16, color: pct === 100 ? '#6b8f5e' : 'rgba(44,24,16,.5)' }}>
+              {pct === 100 ? '🎉 all packed!' : `${packed}/${total} packed`}
             </span>
           )}
         </div>
@@ -63,20 +59,18 @@ export function PackingList({ trip }: Props) {
           onClick={generate}
           disabled={loading}
           className={cn(
-            'px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all',
-            loading
-              ? 'bg-amber-100 text-amber-400 cursor-not-allowed'
-              : list
-              ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
-              : 'text-white shadow-md hover:opacity-90'
+            'rounded-full text-sm font-semibold flex items-center gap-2 disabled:opacity-60',
+            list && !loading ? 'transition-colors hover:text-[#2c1810]' : 'pill-coral pill-lift'
           )}
-          style={!loading && !list ? { background: '#6b8f5e' } : {}}
+          style={list && !loading
+            ? { padding: '9px 18px', border: '1px solid rgba(44,24,16,.18)', color: 'rgba(44,24,16,.6)' }
+            : { padding: '9px 18px' }}
         >
           {loading ? <Loader2 size={14} className="animate-spin" /> : list ? <RefreshCw size={13} /> : null}
-          {loading ? 'Packing…' : list ? 'Regenerate' : 'Build My List'}
+          {loading ? 'Packing…' : list ? 'Regenerate' : '✦ Build my list'}
         </button>
       </div>
-      <p className="text-xs text-amber-700/60 mb-4">Tailored to your dates, weather & activities</p>
+      <div className="mb-4" />
 
       {!list && !loading && (
         <p className="text-center text-amber-800/40 text-sm py-4">

@@ -1,0 +1,12 @@
+client/
+.venv/
+.git/
+.vs/
+.claude/
+bin/
+obj/
+places.db
+places.db-*
+*.md
+.env*
+Dockerfile

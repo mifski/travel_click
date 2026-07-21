@@ -2,7 +2,6 @@
 
 import { create } from 'zustand'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react'
 
 type ToastKind = 'success' | 'error' | 'info'
 
@@ -25,7 +24,7 @@ const useToastStore = create<ToastStore>((set) => ({
   push: (kind, message) => {
     const id = nextId++
     set((s) => ({ toasts: [...s.toasts.slice(-2), { id, kind, message }] }))
-    setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 4000)
+    setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 2600)
   },
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }))
@@ -36,10 +35,11 @@ export const toast = {
   info: (msg: string) => useToastStore.getState().push('info', msg),
 }
 
-const KIND_STYLE: Record<ToastKind, { icon: React.ReactNode; bg: string; border: string; text: string }> = {
-  success: { icon: <CheckCircle2 size={16} className="text-[#6b8f5e]" />, bg: '#f2f8ed', border: '#c8dcc0', text: '#3a6030' },
-  error:   { icon: <AlertCircle size={16} className="text-[#c94040]" />,  bg: '#fdf0f0', border: '#f0c4c4', text: '#8a2828' },
-  info:    { icon: <Info size={16} className="text-[#7e9ab5]" />,         bg: '#f0f5fa', border: '#c0d4e8', text: '#3a5f7a' },
+/* Errors get a coral dot so they read differently at a glance — same ink pill */
+const KIND_DOT: Record<ToastKind, string | null> = {
+  success: null,
+  error: '#c94040',
+  info: null,
 }
 
 export function Toaster() {
@@ -47,35 +47,36 @@ export function Toaster() {
   const dismiss = useToastStore((s) => s.dismiss)
 
   return (
-    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[400] flex flex-col gap-2 items-center pointer-events-none px-4 w-full sm:w-auto print:hidden">
+    <div className="fixed bottom-[30px] left-1/2 -translate-x-1/2 z-[400] flex flex-col gap-2 items-center pointer-events-none px-4 print:hidden">
       <AnimatePresence>
-        {toasts.map((t) => {
-          const s = KIND_STYLE[t.kind]
-          return (
-            <motion.div
-              key={t.id}
-              layout
-              initial={{ opacity: 0, y: 16, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.96 }}
-              transition={{ type: 'spring', stiffness: 420, damping: 30 }}
-              className="pointer-events-auto flex items-center gap-2.5 pl-4 pr-2 py-3 rounded-2xl shadow-lg border max-w-sm w-full sm:w-auto"
-              style={{ background: s.bg, borderColor: s.border }}
-              role="status"
-            >
-              {s.icon}
-              <p className="text-sm font-semibold flex-1" style={{ color: s.text }}>{t.message}</p>
-              <button
-                onClick={() => dismiss(t.id)}
-                aria-label="Dismiss notification"
-                className="p-1.5 rounded-lg opacity-40 hover:opacity-100 transition-opacity"
-                style={{ color: s.text }}
-              >
-                <X size={13} />
-              </button>
-            </motion.div>
-          )
-        })}
+        {toasts.map((t) => (
+          <motion.button
+            key={t.id}
+            layout
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            onClick={() => dismiss(t.id)}
+            className="pointer-events-auto inline-flex items-center gap-2"
+            style={{
+              padding: '12px 22px',
+              borderRadius: 999,
+              background: '#2c1810',
+              color: '#f2ead8',
+              fontSize: 13,
+              fontWeight: 500,
+              boxShadow: '0 16px 40px -8px rgba(0,0,0,.5)',
+              cursor: 'pointer',
+            }}
+            role="status"
+          >
+            {KIND_DOT[t.kind] && (
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: KIND_DOT[t.kind]! }} />
+            )}
+            {t.message}
+          </motion.button>
+        ))}
       </AnimatePresence>
     </div>
   )

@@ -29,6 +29,7 @@ interface TripStore {
 
   // Trip sync
   hydrateTrips: (trips: TripContext[]) => void
+  hydrateCards: (tripId: string, cards: TravelCard[]) => void
   removeTripLocal: (tripId: string) => void
   addTrip: (trip: TripContext) => void
 
@@ -182,6 +183,15 @@ export const useTripStore = create<TripStore>()(
           return fresh.length ? { trips: [...s.trips, ...fresh] } : {}
         }),
 
+      // Cloud cards merge under local ones — local copies may hold newer drag positions
+      hydrateCards: (tripId, incoming) =>
+        set((s) => {
+          const existing = s.cards[tripId] ?? []
+          const known = new Set(existing.map((c) => c.id))
+          const fresh = incoming.filter((c) => !known.has(c.id))
+          return fresh.length ? { cards: { ...s.cards, [tripId]: [...existing, ...fresh] } } : {}
+        }),
+
       removeTripLocal: (tripId) =>
         set((s) => {
           const omit = <T,>(rec: Record<string, T>): Record<string, T> => {
@@ -200,13 +210,12 @@ export const useTripStore = create<TripStore>()(
         }),
 
       addCard: (tripId, cardData) => {
-        const existingCards = get().cards[tripId] ?? []
         const card: TravelCard = {
           ...cardData,
           id: generateId(),
           tripId,
           savedAt: new Date().toISOString(),
-          pinPosition: generatePinPosition(existingCards.length, existingCards.length + 1),
+          pinPosition: generatePinPosition(),
         }
         set((s) => ({
           cards: { ...s.cards, [tripId]: [...(s.cards[tripId] ?? []), card] },
@@ -311,6 +320,25 @@ export const useTripStore = create<TripStore>()(
 
       resetSetup: () => set({ activeSetup: { ...DEFAULT_SETUP } }),
     }),
-    { name: 'travelclick-store' }
+    {
+      name: 'travelclick-store',
+      version: 1,
+      // v0 stored absolute corkboard coordinates; the collage board stores a
+      // drag *offset* per card, so old positions must reset or cards fly off.
+      migrate: (persisted, version) => {
+        const state = persisted as Partial<TripStore>
+        if (version < 1 && state?.cards) {
+          const cards: Record<string, TravelCard[]> = {}
+          for (const [tripId, list] of Object.entries(state.cards)) {
+            cards[tripId] = list.map((c) => ({
+              ...c,
+              pinPosition: { x: 0, y: 0, rotation: randomInRange(-2.5, 3) },
+            }))
+          }
+          state.cards = cards
+        }
+        return state as TripStore
+      },
+    }
   )
 )

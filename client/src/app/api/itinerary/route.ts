@@ -2,14 +2,30 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import type { TripContext, GeneratedItinerary, ItineraryDay } from '@/lib/types'
 import { getDayCount } from '@/lib/utils'
+import { rateLimit, clamp } from '@/lib/api-guard'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, 'itinerary', 6)
+  if (limited) return limited
+
   const body = await req.json()
-  const { trip, savedPlaces, instructions }: { trip: TripContext; savedPlaces?: string[]; instructions?: string } = body
+  const { trip }: { trip: TripContext } = body
+
+  if (!trip?.destination || !trip.startDate || !trip.endDate) {
+    return NextResponse.json({ error: 'Trip details required' }, { status: 400 })
+  }
 
   const days = Math.max(1, getDayCount(trip.startDate, trip.endDate))
+  if (days > 30) {
+    return NextResponse.json({ error: 'Trips longer than 30 days aren’t supported yet — split it into legs.' }, { status: 400 })
+  }
+
+  const savedPlaces: string[] = (Array.isArray(body.savedPlaces) ? body.savedPlaces : [])
+    .slice(0, 60)
+    .map((p: unknown) => clamp(p, 160))
+  const instructions = clamp(body.instructions, 600)
   const ageContext = trip.ageRanges.length
     ? `Group includes: ${trip.ageRanges.join(', ')}.`
     : 'Adults only.'

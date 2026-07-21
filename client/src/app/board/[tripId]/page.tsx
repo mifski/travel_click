@@ -4,26 +4,40 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import {
-  Plane, MapPin, Calendar, Users, DollarSign,
-  BookOpen, ArrowLeft, User, StickyNote as StickyNoteIcon,
-  Sparkles, Luggage, Stamp, BedDouble, X, Wallet
-} from 'lucide-react'
+import { X } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useTripStore } from '@/lib/store'
-import { Corkboard } from '@/components/Board/Corkboard'
+import { CollageBoard } from '@/components/Board/CollageBoard'
 import { LinkExtractor } from '@/components/Board/LinkExtractor'
 import { AccommodationCards } from '@/components/Accommodations/AccommodationCards'
 import { TravelBrief } from '@/components/Brief/TravelBrief'
 import { PackingList } from '@/components/Packing/PackingList'
 import { BudgetPlanner } from '@/components/Budget/BudgetPlanner'
-import { OBJECTIVE_LABELS, PRICE_RANGE_LABELS } from '@/lib/types'
-import { getCategoryFromTags, CATEGORIES } from '@/lib/categories'
+import { GenerationOverlay } from '@/components/UI/GenerationOverlay'
+import { toast } from '@/components/UI/Toaster'
+import { OBJECTIVE_LABELS } from '@/lib/types'
+import { getCategoryFromTags, getChipGroup, CHIP_GROUPS } from '@/lib/categories'
 import { DEMO_TRIP_ID, seedDemo } from '@/lib/demo-data'
-import { formatDate } from '@/lib/utils'
-import { cn } from '@/lib/utils'
+import { getTripStatus, formatDateRange } from '@/lib/utils'
+import type { GeneratedItinerary } from '@/lib/types'
 
 type ToolTab = 'stays' | 'brief' | 'packing' | 'budget' | null
+
+const TOOL_TITLES: Record<Exclude<ToolTab, null>, string> = {
+  stays: 'Places to stay',
+  brief: 'Destination brief',
+  packing: 'Packing list',
+  budget: 'Trip budget',
+}
+
+/* "Food, Culture & Nightlife" from objective keys */
+function formatInterests(objectives: string[]): string {
+  const short = objectives
+    .map((o) => OBJECTIVE_LABELS[o as keyof typeof OBJECTIVE_LABELS]?.label.split(' & ')[0] ?? o)
+    .slice(0, 3)
+  if (short.length <= 1) return short[0] ?? ''
+  return `${short.slice(0, -1).join(', ')} & ${short[short.length - 1]}`
+}
 
 export default function BoardPage() {
   const { tripId } = useParams() as { tripId: string }
@@ -31,18 +45,49 @@ export default function BoardPage() {
   const trip = useTripStore((s) => s.trips.find((t) => t.id === tripId) ?? null)
   const cards = useTripStore((s) => s.cards[tripId]) ?? []
   const notes = useTripStore((s) => s.notes[tripId]) ?? []
+  const itinerary = useTripStore((s) => s.itineraries[tripId] ?? null)
   const addNote = useTripStore((s) => s.addNote)
+  const saveItinerary = useTripStore((s) => s.saveItinerary)
+  const hydrateCards = useTripStore((s) => s.hydrateCards)
 
   const [activeTool, setActiveTool] = useState<ToolTab>(null)
-  const [activeFilters, setActiveFilters] = useState<string[]>([])
+  const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [freshNoteId, setFreshNoteId] = useState<string | null>(null)
+  const [pinOpen, setPinOpen] = useState(false)
+  const [generating, setGenerating] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [demoBanner, setDemoBanner] = useState(true)
 
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
   const isDemo = tripId === DEMO_TRIP_ID
 
   useEffect(() => { setMounted(true) }, [])
+
+  // Deep link from the binder nav: /board/id?tool=stays|brief|packing|budget
+  useEffect(() => {
+    if (!mounted) return
+    const tool = new URLSearchParams(window.location.search).get('tool')
+    if (tool && ['stays', 'brief', 'packing', 'budget'].includes(tool)) {
+      setActiveTool(tool as ToolTab)
+    }
+  }, [mounted])
+
+  // Pull cloud pins down on open — without this, a board opened on a second
+  // device shows the count from /boards but an empty board.
+  useEffect(() => {
+    if (!mounted || isDemo || !user) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { isSupabaseReady, getTripCards, dbCardToTravelCard } = await import('@/lib/supabase')
+        if (!isSupabaseReady) return
+        const { data } = await getTripCards(tripId)
+        if (cancelled || !data?.length) return
+        hydrateCards(tripId, data.map(dbCardToTravelCard))
+      } catch { /* offline — local store stays the source of truth */ }
+    })()
+    return () => { cancelled = true }
+  }, [mounted, isDemo, user, tripId, hydrateCards])
 
   // Deep-linked /board/demo without seeding? Seed it.
   useEffect(() => {
@@ -55,269 +100,337 @@ export default function BoardPage() {
 
   if (!mounted || !trip) return null
 
-  const priceLabel = PRICE_RANGE_LABELS[trip.priceRange]?.label ?? trip.priceRange
+  const status = getTripStatus(trip.startDate, trip.endDate)
+  const dateRange = formatDateRange(trip.startDate, trip.endDate)
+  const interests = formatInterests(trip.objectives)
+  const ghost = trip.destination === 'Tokyo' ? '東京' : trip.destination
+  const ghostSize = ghost.length <= 4 ? 170 : ghost.length <= 8 ? 118 : 88
+  const avatarInitial = (profile?.display_name ?? user?.email ?? 'Traveller')[0]?.toUpperCase() ?? 'T'
 
-  // Categories present on this board (for filter chips)
-  const presentCategories = Array.from(
-    new Map(cards.map((c) => {
-      const cat = getCategoryFromTags(c.tags)
-      return [cat.key, cat] as const
-    })).values()
-  )
-
-  function toggleFilter(key: string) {
-    setActiveFilters((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
-    )
-  }
+  const presentGroups = new Set(cards.map((c) => getChipGroup(getCategoryFromTags(c.tags).key)))
+  const chips = CHIP_GROUPS.filter((g) => presentGroups.has(g.key))
 
   function handleAddNote() {
     const note = addNote(tripId)
     setFreshNoteId(note.id)
+    toast.info('Sticky added — drag it anywhere')
   }
 
-  const TOOLS: { key: Exclude<ToolTab, null>; icon: React.ReactNode; label: string; color: string }[] = [
-    { key: 'stays',   icon: <BedDouble size={13} />, label: 'Stays',   color: '#c94040' },
-    { key: 'brief',   icon: <Stamp size={13} />,     label: 'Brief',   color: '#7e9ab5' },
-    { key: 'packing', icon: <Luggage size={13} />,   label: 'Packing', color: '#6b8f5e' },
-    { key: 'budget',  icon: <Wallet size={13} />,    label: 'Budget',  color: '#c9a84c' },
+  async function goItinerary() {
+    if (itinerary) { router.push(`/board/${tripId}/itinerary`); return }
+    if (cards.length === 0) { toast.info('Pin a few places first ✏️'); return }
+    if (generating || !trip) return
+    setGenerating(true)
+
+    const savedPlaces = cards.map((c) =>
+      [c.location.nameEnglish, c.location.city, c.location.country].filter(Boolean).join(', ')
+    )
+    try {
+      const res = await fetch('/api/itinerary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trip, savedPlaces }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Failed to generate itinerary')
+      saveItinerary(data.itinerary as GeneratedItinerary)
+      toast.success('Your binder is ready ✦')
+      router.push(`/board/${tripId}/itinerary`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to generate itinerary')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const toolPills: { key: Exclude<ToolTab, null>; label: string }[] = [
+    { key: 'stays',   label: '🛏 Stays' },
+    { key: 'brief',   label: '🛂 Brief' },
+    { key: 'packing', label: '🧳 Packing' },
+    { key: 'budget',  label: '💰 Budget' },
   ]
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#f5f0e8' }}>
+    <div className="scrapbook-bg relative min-h-screen overflow-hidden">
+
+      {/* ── Decorative layers ── */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(126,154,181,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(126,154,181,.1) 1px, transparent 1px)',
+          backgroundSize: '120px 120px',
+          maskImage: 'radial-gradient(ellipse at 55% 40%, black, transparent 75%)',
+          WebkitMaskImage: 'radial-gradient(ellipse at 55% 40%, black, transparent 75%)',
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute pointer-events-none"
+        style={{
+          left: '48%', top: '14%', width: 320, height: 320,
+          border: '1.5px dashed rgba(201,64,64,.22)', borderRadius: '50%', transform: 'rotate(-8deg)',
+        }}
+      />
 
       {/* ── Demo ribbon ── */}
       {isDemo && demoBanner && (
-        <div className="px-4 py-2.5 flex items-center justify-center gap-3 text-sm font-semibold text-white relative"
-          style={{ background: 'linear-gradient(90deg, #c98040, #c94040)' }}>
-          <Sparkles size={14} />
+        <div
+          className="relative z-10 px-4 py-2 flex items-center justify-center gap-3 text-[12.5px] font-medium"
+          style={{ background: '#2c1810', color: '#f2ead8' }}
+        >
           <span>You&rsquo;re exploring the demo board — everything works, nothing is saved to an account.</span>
-          <Link href="/auth/signup" className="underline underline-offset-2 hover:opacity-80 shrink-0">
+          <Link href="/auth/signup" className="underline underline-offset-2 hover:opacity-80 shrink-0" style={{ color: '#c9a84c' }}>
             Sign up free
           </Link>
           <button onClick={() => setDemoBanner(false)} aria-label="Dismiss demo banner"
-            className="absolute right-3 opacity-70 hover:opacity-100">
-            <X size={14} />
+            className="absolute right-3 opacity-60 hover:opacity-100">
+            <X size={13} />
           </button>
         </div>
       )}
 
-      {/* ── Header ── */}
-      <header className="bg-white/70 backdrop-blur-md border-b border-amber-200/60 px-4 sm:px-6 py-3.5 shadow-sm">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <div className="relative mx-auto" style={{ maxWidth: 1280 }}>
 
-          {/* Left: back + trip name */}
-          <div className="flex items-center gap-3 min-w-0">
-            <Link href={isDemo ? '/' : '/boards'} aria-label="Back" className="text-amber-700/50 hover:text-amber-700 transition-colors shrink-0">
-              <ArrowLeft size={18} />
+        {/* ── Top bar ── */}
+        <div className="flex items-center justify-between" style={{ padding: '18px 42px 0' }}>
+          <div className="flex items-center gap-5">
+            <Link href={isDemo ? '/' : '/boards'} className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
+              TravelClick<span style={{ color: '#c94040' }}>.</span>
             </Link>
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center shadow-md shrink-0"
-                style={{ background: 'linear-gradient(135deg, #c94040, #e05555)' }}
+            <span style={{ fontSize: 12, color: 'rgba(44,24,16,.45)' }}>
+              <Link href={isDemo ? '/' : '/boards'} className="hover:text-[#2c1810] transition-colors">Boards</Link>
+              &nbsp;&nbsp;/&nbsp;&nbsp;
+              <span style={{ color: '#2c1810', fontWeight: 500 }}>{trip.destination}</span>
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(255,254,249,.7)', boxShadow: '0 2px 8px rgba(44,24,16,.12)' }}>
+              <span className="px-4 py-[7px] rounded-full font-semibold" style={{ background: '#2c1810', color: '#f2ead8', fontSize: 11.5 }}>
+                Moodboard
+              </span>
+              <button
+                onClick={goItinerary}
+                className="px-4 py-[7px] rounded-full font-semibold transition-colors hover:text-[#c94040]"
+                style={{ color: 'rgba(44,24,16,.6)', fontSize: 11.5 }}
               >
-                <Plane size={16} className="text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-[#2c1810] font-bold text-base leading-tight truncate">
-                  {trip.destination}
-                </h1>
-                <p className="text-amber-700/50 text-xs">{trip.country}</p>
-              </div>
+                Itinerary ✦
+              </button>
+            </div>
+            <Link href={isDemo ? '/auth/signup' : '/profile'} aria-label="Profile">
+              {profile?.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profile.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" style={{ boxShadow: '0 2px 8px rgba(201,64,64,.3)' }} />
+              ) : (
+                <span
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold"
+                  style={{ background: 'linear-gradient(135deg, #e8a8b8, #c94040)', boxShadow: '0 2px 8px rgba(201,64,64,.3)', fontSize: 12 }}
+                >
+                  {avatarInitial}
+                </span>
+              )}
+            </Link>
+          </div>
+        </div>
+
+        {/* ── Masthead ── */}
+        <div className="relative flex items-end justify-between flex-wrap gap-6" style={{ padding: '24px 42px 0' }}>
+          <div className="relative z-[2]">
+            <div className="flex items-center gap-3 mb-1.5">
+              <span className="uppercase font-semibold" style={{ fontSize: 11, letterSpacing: '.22em', color: '#c94040' }}>
+                Trip moodboard
+              </span>
+              <span style={{ height: 1, width: 48, background: 'rgba(201,64,64,.4)' }} />
+              {status.kind === 'upcoming' && (
+                <span className="font-hand" style={{ fontSize: 17, color: 'rgba(44,24,16,.55)', transform: 'rotate(-2deg)' }}>
+                  {status.label}!
+                </span>
+              )}
+            </div>
+            <h1
+              className="font-display m-0 italic"
+              style={{ fontWeight: 800, fontSize: 76, lineHeight: 0.95, color: '#2c1810', letterSpacing: '-.03em' }}
+            >
+              {trip.destination}
+            </h1>
+            <div className="flex flex-wrap items-center" style={{ gap: 18, marginTop: 12, fontSize: 13, color: 'rgba(44,24,16,.6)' }}>
+              <span>{dateRange}</span>
+              <span style={{ color: 'rgba(44,24,16,.25)' }}>·</span>
+              <span>{trip.paxCount} traveller{trip.paxCount > 1 ? 's' : ''}</span>
+              {interests && (<><span style={{ color: 'rgba(44,24,16,.25)' }}>·</span><span>{interests}</span></>)}
+              <span style={{ color: 'rgba(44,24,16,.25)' }}>·</span>
+              <span style={{ color: '#6b8f5e', fontWeight: 600 }}>{cards.length} place{cards.length === 1 ? '' : 's'} pinned</span>
             </div>
           </div>
 
-          {/* Centre: meta chips */}
-          <div className="hidden md:flex items-center gap-2 flex-wrap">
-            <MetaChip icon={<Calendar size={10} />} label={`${formatDate(trip.startDate)} – ${formatDate(trip.endDate)}`} color="blue" />
-            <MetaChip icon={<Users size={10} />} label={`${trip.paxCount} traveller${trip.paxCount > 1 ? 's' : ''}`} color="sage" />
-            <MetaChip icon={<DollarSign size={10} />} label={priceLabel} color="gold" />
-            {trip.objectives.slice(0, 2).map((obj) => (
-              <MetaChip key={obj} icon={<span className="text-[10px]">{OBJECTIVE_LABELS[obj]?.icon}</span>} label={OBJECTIVE_LABELS[obj]?.label ?? obj} color="blush" />
-            ))}
-          </div>
+          <span
+            aria-hidden="true"
+            className="font-display absolute pointer-events-none select-none whitespace-nowrap"
+            style={{ left: '50%', top: -16, transform: 'translateX(-50%)', fontWeight: 900, fontSize: ghostSize, color: 'rgba(44,24,16,.05)', letterSpacing: '.02em' }}
+          >
+            {ghost}
+          </span>
 
-          {/* Right: profile + itinerary button */}
-          <div className="flex items-center gap-3 shrink-0">
-            <span className="text-amber-800/30 text-xs hidden sm:block">{cards.length} pins</span>
-            {!isDemo && (
-              <Link href="/profile" aria-label="Profile" className="hidden sm:flex items-center gap-1.5 group">
-                {profile?.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={profile.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover border-2 border-amber-200 group-hover:border-[#c94040] transition-colors" />
-                ) : (
-                  <div className="w-7 h-7 rounded-full bg-amber-100 border-2 border-amber-200 group-hover:border-amber-400 transition-colors flex items-center justify-center">
-                    <User size={12} className="text-amber-600" />
-                  </div>
-                )}
-              </Link>
-            )}
-            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-              <Link
-                href={`/board/${tripId}/itinerary`}
-                className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md',
-                  cards.length > 0
-                    ? 'text-white shadow-red-200'
-                    : 'bg-amber-100 text-amber-400 pointer-events-none'
-                )}
-                style={cards.length > 0 ? { background: 'linear-gradient(135deg, #c94040, #e05555)' } : {}}
-              >
-                <BookOpen size={14} />
-                <span className="hidden sm:block">{isDemo ? 'View Itinerary' : 'Create Itinerary'}</span>
-                <span className="sm:hidden">Plan</span>
-              </Link>
-            </motion.div>
+          {/* Boarding pass */}
+          <div
+            className="relative z-[2] flex"
+            style={{ filter: 'drop-shadow(0 14px 24px rgba(44,24,16,.28))', transform: 'rotate(1.5deg)', marginBottom: 6 }}
+          >
+            <div style={{ background: '#fffef9', borderRadius: '10px 0 0 10px', padding: '16px 22px', borderRight: '2px dashed rgba(44,24,16,.2)' }}>
+              <div style={{ fontSize: 9, letterSpacing: '.2em', color: 'rgba(44,24,16,.45)', fontWeight: 700 }}>
+                BOARDING · TRAVELCLICK AIR
+              </div>
+              <div className="flex items-center gap-3" style={{ marginTop: 6 }}>
+                <span style={{ color: '#c94040', fontSize: 15 }}>✈</span>
+                <span className="font-display" style={{ fontWeight: 800, fontSize: 26, color: '#2c1810' }}>
+                  {trip.destination.toUpperCase()}
+                </span>
+              </div>
+              <div style={{ marginTop: 5, fontSize: 10.5, color: 'rgba(44,24,16,.55)' }}>
+                {dateRange} · {trip.paxCount} PAX
+              </div>
+            </div>
+            <div className="flex flex-col justify-center gap-[3px]" style={{ background: '#c94040', borderRadius: '0 10px 10px 0', padding: '16px 16px' }}>
+              <span style={{ fontSize: 9, letterSpacing: '.15em', color: 'rgba(255,255,255,.7)', fontWeight: 700 }}>SEAT</span>
+              <span className="font-display" style={{ fontWeight: 800, fontSize: 20, color: '#fff' }}>2A</span>
+            </div>
           </div>
         </div>
-      </header>
 
-      {/* ── Page body ── */}
-      <div className="flex-1 flex flex-col gap-5 p-4 sm:p-6 max-w-7xl mx-auto w-full">
-
-        {/* Link extractor — primary capture action */}
-        <LinkExtractor tripId={tripId} />
-
-        {/* Tool tabs */}
-        <div>
-          <div className="flex items-center gap-2">
-            {TOOLS.map((tool) => {
-              const active = activeTool === tool.key
-              return (
-                <button
-                  key={tool.key}
-                  onClick={() => setActiveTool(active ? null : tool.key)}
-                  aria-expanded={active}
-                  className={cn(
-                    'flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold border-2 transition-all',
-                    active ? 'text-white shadow-md' : 'bg-white/70 text-amber-900/60 border-amber-200 hover:text-amber-900'
-                  )}
-                  style={active ? { background: tool.color, borderColor: tool.color } : {}}
-                >
-                  {tool.icon}
-                  {tool.label}
-                </button>
-              )
-            })}
-          </div>
-
-          <AnimatePresence>
-            {activeTool && (
-              <motion.div
-                key={activeTool}
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.22 }}
-                className="overflow-hidden"
+        {/* ── Luggage-tag filters ── */}
+        <div className="relative z-[3] flex items-center flex-wrap" style={{ gap: 10, padding: '20px 42px 6px' }}>
+          <button
+            className="luggage-tag"
+            onClick={() => setActiveFilter(null)}
+            aria-pressed={!activeFilter}
+            style={!activeFilter
+              ? { background: '#2c1810', color: '#f2ead8', boxShadow: '0 5px 12px -3px rgba(44,24,16,.45)' }
+              : { background: '#fffef9', color: '#2c1810', boxShadow: '0 4px 10px -3px rgba(44,24,16,.25)' }}
+          >
+            ALL · {cards.length}
+          </button>
+          {chips.map((chip) => {
+            const active = activeFilter === chip.key
+            return (
+              <button
+                key={chip.key}
+                className="luggage-tag"
+                onClick={() => setActiveFilter(active ? null : chip.key)}
+                aria-pressed={active}
+                style={active
+                  ? { background: '#2c1810', color: '#f2ead8', boxShadow: '0 5px 12px -3px rgba(44,24,16,.45)' }
+                  : { background: '#fffef9', color: chip.color, boxShadow: '0 4px 10px -3px rgba(44,24,16,.25)', transform: `rotate(${chip.rotation}deg)` }}
               >
-                <div className="mt-3">
-                  {activeTool === 'stays' && <AccommodationCards trip={trip} />}
-                  {activeTool === 'brief' && <TravelBrief trip={trip} />}
-                  {activeTool === 'packing' && <PackingList trip={trip} />}
-                  {activeTool === 'budget' && <BudgetPlanner trip={trip} />}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Board label + filters + add note */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="text-amber-900 font-bold text-sm flex items-center gap-2 shrink-0">
-            <MapPin size={14} className="text-[#c94040]" />
-            Your Board
-            {cards.length > 0 && (
-              <span className="text-amber-700/40 font-normal text-xs">({cards.length} places)</span>
-            )}
-          </h2>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {presentCategories.length > 1 && presentCategories.map((cat) => {
-              const active = activeFilters.includes(cat.key)
-              return (
-                <button
-                  key={cat.key}
-                  onClick={() => toggleFilter(cat.key)}
-                  aria-pressed={active}
-                  className={cn(
-                    'flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all',
-                    active ? 'text-white shadow-sm' : 'bg-white/70 text-amber-900/60 border-amber-200 hover:text-amber-900'
-                  )}
-                  style={active ? { background: cat.color, borderColor: cat.color } : {}}
-                >
-                  <span>{cat.icon}</span>
-                  {cat.label}
-                </button>
-              )
-            })}
-            {activeFilters.length > 0 && (
-              <button onClick={() => setActiveFilters([])}
-                className="text-[11px] text-amber-700/50 hover:text-amber-900 font-semibold underline underline-offset-2">
-                Clear
+                {chip.label}
               </button>
-            )}
-            <button
-              onClick={handleAddNote}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border-2 border-dashed border-[#c9a84c]/60 text-[#8a6d20] bg-[#fef3a8]/50 hover:bg-[#fef3a8] transition-colors"
-            >
-              <StickyNoteIcon size={11} />
-              Add note
-            </button>
-          </div>
+            )
+          })}
+          <span className="ml-auto font-hand hidden sm:block" style={{ fontSize: 18, color: 'rgba(44,24,16,.5)', transform: 'rotate(-1deg)' }}>
+            drag anything ✏️
+          </span>
         </div>
 
-        {/* Corkboard */}
-        <div className="flex-1">
-          <Corkboard
-            tripId={tripId}
+        {/* ── Collage ── */}
+        <div className="overflow-x-auto" style={{ padding: '18px 42px 0' }}>
+          <CollageBoard
+            trip={trip}
             cards={cards}
             notes={notes}
-            activeFilters={activeFilters}
+            activeFilter={activeFilter}
             freshNoteId={freshNoteId}
+            onOpenPin={() => setPinOpen(true)}
           />
         </div>
 
-        {/* CTA */}
-        {cards.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center py-4"
+        {/* ── Bottom action strip ── */}
+        <div
+          className="sticky bottom-0 z-40 flex items-center justify-between flex-wrap gap-3"
+          style={{ padding: '22px 42px 18px', background: 'linear-gradient(180deg, transparent, rgba(233,223,205,.95) 45%)' }}
+        >
+          <div className="flex flex-wrap" style={{ gap: 8 }}>
+            <button onClick={() => setPinOpen(true)} className="pill-coral pill-lift flex items-center gap-2 rounded-full font-semibold" style={{ padding: '10px 18px', fontSize: 12.5 }}>
+              🔗 Pin a link
+            </button>
+            <button onClick={handleAddNote} className="pill-paper pill-lift flex items-center gap-2 rounded-full" style={{ padding: '10px 16px', fontSize: 12.5 }}>
+              📝 Note
+            </button>
+            {toolPills.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setActiveTool(t.key)}
+                className="pill-paper pill-lift flex items-center gap-2 rounded-full"
+                style={{ padding: '10px 16px', fontSize: 12.5 }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={goItinerary}
+            disabled={generating}
+            className="pill-ink pill-lift flex items-center gap-2 font-semibold disabled:opacity-60"
+            style={{ padding: '14px 28px', borderRadius: 12, fontSize: 14.5 }}
           >
-            <Link
-              href={`/board/${tripId}/itinerary`}
-              className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-lg text-white transition-all hover:scale-105 active:scale-100 shadow-xl"
-              style={{ background: 'linear-gradient(135deg, #c94040 0%, #e05555 50%, #c94040 100%)', boxShadow: '0 8px 30px rgba(201,64,64,0.35)' }}
+            {itinerary ? 'Open my binder ✦' : 'Assemble my binder ✦'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Pin-a-link modal ── */}
+      <LinkExtractor tripId={tripId} open={pinOpen} onClose={() => setPinOpen(false)} />
+
+      {/* ── Binder generation overlay ── */}
+      <GenerationOverlay show={generating} />
+
+      {/* ── Tool overlay (Stays / Brief / Packing / Budget) ── */}
+      <AnimatePresence>
+        {activeTool && (
+          <motion.div
+            className="fixed inset-0 z-[190] flex items-start justify-center overflow-y-auto p-4 sm:p-10"
+            style={{ background: 'rgba(32,18,9,.55)', backdropFilter: 'blur(3px)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setActiveTool(null)}
+          >
+            <motion.div
+              className="w-full"
+              style={{
+                maxWidth: 880,
+                background: '#fffef9',
+                borderRadius: 16,
+                padding: '24px 28px 28px',
+                boxShadow: '0 40px 90px -20px rgba(0,0,0,.6)',
+              }}
+              initial={{ y: 18, scale: 0.98 }}
+              animate={{ y: 0, scale: 1 }}
+              exit={{ y: 18, scale: 0.98 }}
+              transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <BookOpen size={20} />
-              {isDemo ? 'See the Day-by-Day Itinerary' : 'Generate Day-by-Day Itinerary'}
-            </Link>
-            <p className="text-amber-700/40 text-xs mt-2">
-              {isDemo ? 'Pre-generated for the demo — regenerate it live if you like' : 'AI-powered · Takes ~30 seconds'}
-            </p>
+              <div className="flex items-baseline justify-between mb-4">
+                <span className="font-display" style={{ fontWeight: 800, fontSize: 22, color: '#2c1810' }}>
+                  {TOOL_TITLES[activeTool]}
+                </span>
+                <button
+                  onClick={() => setActiveTool(null)}
+                  aria-label="Close"
+                  className="transition-colors hover:text-[#c94040]"
+                  style={{ fontSize: 18, color: 'rgba(44,24,16,.4)' }}
+                >
+                  ×
+                </button>
+              </div>
+              {activeTool === 'stays' && <AccommodationCards trip={trip} />}
+              {activeTool === 'brief' && <TravelBrief trip={trip} />}
+              {activeTool === 'packing' && <PackingList trip={trip} />}
+              {activeTool === 'budget' && <BudgetPlanner trip={trip} />}
+            </motion.div>
           </motion.div>
         )}
-      </div>
+      </AnimatePresence>
     </div>
-  )
-}
-
-/* ── Chip component ── */
-type ChipColor = 'blue' | 'sage' | 'gold' | 'blush'
-
-const CHIP_STYLES: Record<ChipColor, string> = {
-  blue:  'bg-[#c0d4e8]/60 border-[#7e9ab5]/40 text-[#3a5f7a]',
-  sage:  'bg-[#c8dcc0]/60 border-[#6b8f5e]/40 text-[#3a6030]',
-  gold:  'bg-amber-100 border-amber-300/60 text-amber-800',
-  blush: 'bg-[#f4d0da]/60 border-[#e8a8b8]/50 text-[#8a3050]',
-}
-
-function MetaChip({ icon, label, color }: { icon: React.ReactNode; label: string; color: ChipColor }) {
-  return (
-    <span className={cn('flex items-center gap-1 px-2.5 py-1 border rounded-full text-xs font-semibold', CHIP_STYLES[color])}>
-      {icon}
-      {label}
-    </span>
   )
 }
