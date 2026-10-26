@@ -3,14 +3,38 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
-import {
-  MapPin, BookOpen, Sparkles, ArrowRight, Link2,
-  Luggage, Stamp, Play, Wand2, Printer, Scale, Wallet
-} from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { seedDemo } from '@/lib/demo-data'
-import { Logo } from '@/components/UI/Logo'
+import { Logo, PostmarkMark } from '@/components/UI/Logo'
+
+const INK = '#2c1810'
+const INK_SOFT = 'rgba(44,24,16,.7)'
+const CREAM = '#f2ead8'
+const CREAM_SOFT = 'rgba(242,234,216,.68)'
+const GOLD = '#c9a84c'
+
+/* The same ruled-paper prints the board draws for pins without photos */
+const PRINTS = [
+  { local: '浅草寺', title: 'Sensō-ji at sunrise', note: 'go before the crowds', meta: 'Asakusa, from TikTok', rot: -4, x: 0, y: 34, tape: 'rgba(200,220,192,.75)' },
+  { local: '明治神宮', title: 'Forest calm in the city', note: 'weekend weddings!', meta: 'Harajuku, from Instagram', rot: 3, x: 214, y: 0, tape: 'rgba(192,212,232,.75)' },
+  { local: '一蘭', title: 'Solo-booth ramen', note: 'order at the machine', meta: 'Shibuya, from YouTube', rot: -1.5, x: 120, y: 228, tape: 'rgba(240,196,196,.7)' },
+]
+
+/* One day of the demo binder, as the itinerary page draws it */
+const DAY = [
+  { time: '6:30 AM', what: 'Sensō-ji before the crowds', note: 'Main hall opens at 6. Incense is quietest now.' },
+  { time: '10:00 AM', what: 'Nakamise snacks, then the river bus', note: 'Fixed departures: the 10:40 boat, so don’t linger.' },
+  { time: '2:00 PM', what: 'Rest block', note: 'Café near Hamarikyu. Protected downtime.' },
+]
+
+const BINDER_DOES = [
+  ['Reality Check', 'Checks opening hours, last trains and closed days, and flags anything that would break on the ground.'],
+  ['Your pace', 'Slow, balanced or full days, each with one anchor, a rest block and a rainy-day backup.'],
+  ['Tickets to book', 'Every reservation with its book-by date, ready to add to your calendar.'],
+  ['Packing and brief', 'A packing list for the season, plus currency, phrases, plugs and etiquette.'],
+  ['Budget', 'Flights, stays and daily spend against what you want to pay, in S$.'],
+  ['Plan together', 'Add a friend to the board and see each other’s pins and edits as they happen.'],
+]
 
 export default function LandingPage() {
   const { user, loading } = useAuth()
@@ -35,271 +59,203 @@ export default function LandingPage() {
 
   if (user) return null
 
-  return (
-    <div className="scrapbook-bg min-h-dvh flex flex-col">
+  const demoButton = (tone: 'coral' | 'gold', size: 'lg' | 'sm' = 'lg') => (
+    <button
+      onClick={launchDemo}
+      disabled={launching}
+      className={`${tone === 'coral' ? 'pill-coral' : 'pill-gold'} pill-lift inline-flex items-center gap-2 rounded-full font-bold disabled:opacity-70`}
+      style={size === 'lg' ? { padding: '15px 30px', fontSize: 16 } : { padding: '10px 18px', fontSize: 13 }}
+    >
+      {launching && (
+        <span className="tc-spinner w-4 h-4" style={{ border: '2px solid rgba(255,255,255,.35)', borderTopColor: tone === 'coral' ? '#fff' : '#201209' }} />
+      )}
+      Open the demo board
+    </button>
+  )
 
-      {/* Nav */}
-      <header className="px-6 sm:px-10 py-5 flex items-center justify-between sticky top-0 z-50"
-        style={{ background: 'rgba(233,223,205,.85)', backdropFilter: 'blur(8px)' }}>
-        <span className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
-          <Logo fontSize={19} />
-        </span>
-        <div className="flex items-center gap-3">
-          <Link href="/auth/login" className="text-sm font-medium px-4 py-2 transition-colors hover:text-[#2c1810]" style={{ color: 'rgba(44,24,16,.68)' }}>
+  return (
+    <div className="scrapbook-bg min-h-dvh flex flex-col overflow-x-clip" style={{ color: INK }}>
+
+      <header className="px-5 sm:px-10 py-4 flex items-center justify-between gap-3">
+        <Logo fontSize={19} />
+        <nav className="flex items-center gap-2 sm:gap-4">
+          <Link href="/auth/login" className="text-sm font-medium px-3 py-2 rounded-full transition-colors hover:text-[#c94040]" style={{ color: INK_SOFT }}>
             Sign in
           </Link>
-          <Link
-            href="/auth/signup"
-            className="pill-coral pill-lift px-5 py-2.5 rounded-full text-sm font-semibold"
-          >
-            Get started
-          </Link>
-        </div>
+          <span className="hidden sm:inline">{demoButton('coral', 'sm')}</span>
+        </nav>
       </header>
 
-      {/* Hero */}
       <main className="flex-1">
-        <section className="flex flex-col items-center px-6 text-center pt-16 pb-20">
-          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
 
-            {/* Kicker */}
-            <div className="flex items-center justify-center gap-3 mb-6">
-              <span className="uppercase font-semibold" style={{ fontSize: 11, letterSpacing: '.22em', color: '#c94040' }}>
-                AI-powered travel planning
-              </span>
-              <span style={{ height: 1, width: 48, background: 'rgba(201,64,64,.4)' }} />
-              <span className="font-hand" style={{ fontSize: 17, color: 'rgba(44,24,16,.68)', transform: 'rotate(-2deg)' }}>
-                paste a link, get a plan ✏️
-              </span>
-            </div>
-
-            {/* Headline */}
-            <h1
-              className="font-display text-5xl sm:text-7xl leading-tight mb-6 text-[#2c1810]"
-              style={{ fontWeight: 800, letterSpacing: '-.03em' }}
-            >
-              From saved videos<br />
-              <span className="italic" style={{ color: '#c94040' }}>to boarding pass</span>
+        {/* ── Hero: the board itself ── */}
+        <section className="mx-auto grid items-center gap-12 lg:grid-cols-[1fr_520px]" style={{ maxWidth: 1180, padding: '48px 20px 88px' }}>
+          <div style={{ maxWidth: 560 }}>
+            <h1 className="font-display m-0" style={{ fontWeight: 800, fontSize: 'clamp(42px, 6vw, 68px)', lineHeight: 1.02, letterSpacing: '-.025em' }}>
+              Your saved travel videos, made into a trip you can take.
             </h1>
-
-            <p className="text-lg max-w-lg mx-auto mb-10 leading-relaxed" style={{ color: 'rgba(44,24,16,.68)' }}>
-              Paste TikToks, YouTube videos, and articles. We extract the places, pin them
-              into a beautiful travel scrapbook, and turn them into a day-by-day itinerary,
-              with packing list and destination brief included.
+            <p style={{ margin: '22px 0 0', fontSize: 18, lineHeight: 1.6, color: INK_SOFT, maxWidth: 480 }}>
+              Paste a TikTok, YouTube video or article. TravelClick pins every place it mentions
+              to a scrapbook board, then plans the days around them.
             </p>
-
-            <div className="flex flex-col sm:flex-row items-center gap-4 justify-center">
-              <button
-                onClick={launchDemo}
-                disabled={launching}
-                className="pill-coral pill-lift flex items-center gap-2 px-8 py-4 rounded-full font-bold text-lg disabled:opacity-70"
-              >
-                {launching
-                  ? <span className="tc-spinner w-5 h-5" style={{ border: '2px solid rgba(255,255,255,.3)', borderTopColor: '#fff' }} />
-                  : <Play size={18} />}
-                Try the live demo
-              </button>
-              <Link
-                href="/auth/signup"
-                className="pill-paper pill-lift flex items-center gap-2 px-6 py-4 rounded-full font-semibold"
-                style={{ color: 'rgba(44,24,16,.75)' }}
-              >
-                Start for free
-                <ArrowRight size={16} />
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3" style={{ marginTop: 32 }}>
+              {demoButton('coral')}
+              <Link href="/auth/signup" className="font-semibold underline underline-offset-4 decoration-[#c94040]/40 hover:decoration-[#c94040]" style={{ fontSize: 15 }}>
+                Create an account
               </Link>
             </div>
-            <p className="text-xs mt-3" style={{ color: 'rgba(44,24,16,.68)' }}>No signup needed for the demo · 5 seconds to a full board</p>
-            <Link href="/decide"
-              className="inline-flex items-center gap-1.5 mt-5 text-sm font-semibold text-[#3a5f7a] hover:text-[#2c4a62] transition-colors underline underline-offset-4 decoration-[#7e9ab5]/40">
-              <Scale size={14} />
-              Not sure where to go yet? Compare destinations
-            </Link>
-          </motion.div>
-
-          {/* Scrapbook teaser */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.45, duration: 0.6 }}
-            className="scrapbook-bg mt-16 w-full max-w-2xl rounded-2xl relative overflow-hidden"
-            style={{ boxShadow: '0 24px 70px rgba(44,24,16,0.22)', minHeight: 230, border: '1px solid rgba(44,24,16,.08)' }}
-          >
-            {[
-              { title: 'Sensō-ji at sunrise 🌅', loc: 'Asakusa · go before 9am', src: 'TIKTOK', color: '#c94040', tape: 'rgba(200,220,192,.7)', rot: '-3deg', top: '10%', left: '4%', delay: 0.7 },
-              { title: '200 tiny bars 🏮', loc: 'Shinjuku · cash only', src: 'TIKTOK', color: '#2c1810', tape: 'rgba(240,196,196,.6)', rot: '2deg', top: '8%', left: '30%', delay: 0.9 },
-              { title: 'forest in the city 🌿', loc: 'Harajuku · weekend weddings', src: 'IG', color: '#d946ef', tape: 'rgba(192,212,232,.7)', rot: '-2deg', top: '14%', left: '58%', delay: 1.1 },
-              { title: '634m ↑ sunset slot', loc: 'Sumida · book 18:10', src: 'WEB', color: '#0ea5e9', tape: 'rgba(200,220,192,.7)', rot: '3deg', top: '52%', left: '16%', delay: 1.3 },
-              { title: 'the famous scramble!!', loc: 'Shibuya · 3,000 per light', src: 'YT', color: '#ef4444', tape: 'rgba(232,168,184,.6)', rot: '-2deg', top: '55%', left: '44%', delay: 1.5 },
-            ].map((card) => (
-              <motion.div
-                key={card.title}
-                initial={{ opacity: 0, scale: 0.6, y: -14 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ delay: card.delay, type: 'spring', stiffness: 300, damping: 18 }}
-                className="absolute bg-[#fffef9]"
-                style={{
-                  width: 170, top: card.top, left: card.left, transform: `rotate(${card.rot})`,
-                  padding: '10px 10px 11px',
-                  boxShadow: '0 2px 3px rgba(44,24,16,.12), 0 16px 36px -8px rgba(44,24,16,.36)',
-                }}
-              >
-                <span aria-hidden="true" className="washi" style={{ top: -8, left: 44, width: 58, height: 16, background: card.tape, transform: 'rotate(-4deg)' }} />
-                <div className="flex items-baseline justify-between gap-1">
-                  <p className="font-hand leading-tight truncate" style={{ fontSize: 17, color: '#2c1810' }}>{card.title}</p>
-                  <span className="shrink-0 font-extrabold" style={{ fontSize: 8, letterSpacing: '.08em', color: card.color }}>{card.src}</span>
-                </div>
-                <p className="mt-0.5 truncate" style={{ fontSize: 9.5, color: 'rgba(44,24,16,.68)' }}>{card.loc}</p>
-              </motion.div>
-            ))}
-            {/* Sticky note */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.6 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 1.7, type: 'spring', stiffness: 280, damping: 16 }}
-              className="absolute"
-              style={{
-                top: '42%', left: '74%', width: 130, padding: '16px 12px 12px',
-                background: 'linear-gradient(180deg, #fdf3b9, #f7e88e)', transform: 'rotate(4deg)',
-                boxShadow: '0 2px 3px rgba(44,24,16,.14), 0 14px 30px -6px rgba(44,24,16,.3)',
-              }}
-            >
-              <span aria-hidden="true" className="washi" style={{ top: -8, left: '50%', marginLeft: -30, width: 60, height: 16, background: 'rgba(232,168,184,.6)', transform: 'rotate(-2deg)' }} />
-              <p className="font-hand leading-snug" style={{ fontSize: 15, color: '#4a3520' }}>get a Suica card at the airport! 🚆</p>
-            </motion.div>
-          </motion.div>
-        </section>
-
-        {/* How it works */}
-        <section className="px-6 py-20" style={{ background: '#fdfaf3' }}>
-          <div className="max-w-4xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-80px' }}
-              className="text-center mb-12"
-            >
-              <h2 className="text-3xl sm:text-4xl font-bold text-[#2c1810] mb-3" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>
-                Three steps to a real plan
-              </h2>
-              <p className="text-[#6b4a32]">Stop screenshotting travel videos you&rsquo;ll never find again.</p>
-            </motion.div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              {[
-                { step: '01', icon: <Link2 size={20} />, color: '#c94040', title: 'Paste a link', desc: 'TikTok, YouTube, Instagram, or any article. Our AI watches the video and extracts the actual places.' },
-                { step: '02', icon: <MapPin size={20} />, color: '#6b8f5e', title: 'Pin & curate', desc: 'Every place becomes a paper print in your travel scrapbook. Drag, filter by category, add sticky notes.' },
-                { step: '03', icon: <BookOpen size={20} />, color: '#7e9ab5', title: 'Get the itinerary', desc: 'One click and AI routes everything into a day-by-day plan with meals, costs, maps, and booking flags.' },
-              ].map((s, i) => (
-                <motion.div
-                  key={s.step}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: '-60px' }}
-                  transition={{ delay: i * 0.12 }}
-                  className="bg-white border border-amber-200 rounded-2xl p-6 shadow-sm relative overflow-hidden"
-                >
-                  <span className="absolute -top-3 -right-1 text-[64px] font-black opacity-[0.06] select-none" style={{ fontFamily: 'Georgia, serif' }}>
-                    {s.step}
-                  </span>
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white mb-4 shadow-md" style={{ background: s.color }}>
-                    {s.icon}
-                  </div>
-                  <h3 className="font-bold text-[#2c1810] mb-1.5">{s.title}</h3>
-                  <p className="text-sm text-[#6b4a32] leading-relaxed">{s.desc}</p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Feature grid */}
-        <section className="px-6 py-20">
-          <div className="max-w-4xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-80px' }}
-              className="text-center mb-12"
-            >
-              <h2 className="text-3xl sm:text-4xl font-bold text-[#2c1810] mb-3" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>
-                Everything until departure day
-              </h2>
-              <p className="text-[#6b4a32]">One board per trip, and every pre-trip job handled.</p>
-            </motion.div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[
-                { icon: <Scale size={16} />, color: '#3a5f7a', title: 'Destination decider', desc: 'Torn between cities? Compare weather, costs & visas, get a verdict.' },
-                { icon: <Sparkles size={16} />, color: '#c94040', title: 'AI place extraction', desc: 'Video → places, with local names and confidence scores.' },
-                { icon: <BookOpen size={16} />, color: '#e07040', title: 'Day-by-day itinerary', desc: 'Geographically-grouped days with meals, pace, and timing.' },
-                { icon: <Wand2 size={16} />, color: '#9b72bf', title: 'Refine with words', desc: '"More street food, fewer museums": regenerate your way.' },
-                { icon: <Stamp size={16} />, color: '#7e9ab5', title: 'Destination brief', desc: 'Currency, phrases, plugs, tipping, etiquette, one passport page.' },
-                { icon: <Luggage size={16} />, color: '#6b8f5e', title: 'Smart packing list', desc: 'Season-aware checklist sized to your trip and group.' },
-                { icon: <Wallet size={16} />, color: '#c9a84c', title: 'Budget guardrail', desc: 'Flights + stay + daily costs vs your budget, always on-screen.' },
-                { icon: <Printer size={16} />, color: '#3a7a7a', title: 'Print-ready plans', desc: 'Export the whole itinerary as a clean PDF for offline travel.' },
-              ].map((f, i) => (
-                <motion.div
-                  key={f.title}
-                  initial={{ opacity: 0, y: 16 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: '-40px' }}
-                  transition={{ delay: i * 0.07 }}
-                  className="flex gap-3.5 bg-white/70 border border-amber-200 rounded-2xl p-5 hover:shadow-md hover:border-amber-300 transition-all"
-                >
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white shrink-0 shadow-sm" style={{ background: f.color }}>
-                    {f.icon}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-[#2c1810] text-sm mb-1">{f.title}</h3>
-                    <p className="text-xs text-[#6b4a32] leading-relaxed">{f.desc}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Final CTA */}
-        <section className="px-6 pb-24">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-60px' }}
-            className="max-w-3xl mx-auto text-center rounded-3xl px-8 py-14 relative overflow-hidden"
-            style={{
-              background: '#201209',
-              backgroundImage: 'radial-gradient(ellipse at 50% -10%, rgba(201,168,76,.18), transparent 60%)',
-            }}
-          >
-            <div className="absolute top-4 left-8 stamp !text-[10px]" style={{ color: 'rgba(201,168,76,.4)' }}>Boarding pass</div>
-            <div className="absolute bottom-4 right-8 stamp !text-[10px] !rotate-3" style={{ color: 'rgba(201,168,76,.4)' }}>Tokyo · Paris · Bali</div>
-            <h2 className="font-display text-3xl sm:text-4xl mb-4" style={{ fontWeight: 800, color: '#f2ead8' }}>
-              Your next trip starts<br /><span className="italic" style={{ fontWeight: 500, color: 'rgba(242,234,216,.8)' }}>with a paste</span>
-            </h2>
-            <p className="mb-8 max-w-md mx-auto" style={{ color: 'rgba(242,234,216,.55)' }}>
-              Try the demo board right now. No account, no setup, just the product.
+            <p className="font-hand" style={{ margin: '14px 0 0 4px', fontSize: 20, color: '#6b4a32', transform: 'rotate(-1deg)', transformOrigin: 'left' }}>
+              the demo needs no signup, it&rsquo;s a real Tokyo board
             </p>
-            <button
-              onClick={launchDemo}
-              disabled={launching}
-              className="pill-gold pill-lift inline-flex items-center gap-2 px-8 py-4 rounded-full font-bold text-lg disabled:opacity-70"
-            >
-              {launching
-                ? <span className="tc-spinner w-5 h-5" style={{ border: '2px solid rgba(32,18,9,.3)', borderTopColor: '#201209' }} />
-                : <Play size={18} />}
-              Launch the demo ✦
-            </button>
-          </motion.div>
+          </div>
+
+          {/* Collage: real board materials, with the postmark stamped on */}
+          <div className="relative mx-auto w-full" style={{ maxWidth: 520, height: 'calc(420px * var(--collage-scale, 1))' }} aria-hidden="true">
+            <div className="absolute inset-0" style={{ transform: 'scale(var(--collage-scale, 1))', transformOrigin: 'top left' }}>
+              {PRINTS.map((p) => (
+                <div
+                  key={p.local}
+                  className="paper-print"
+                  style={{ position: 'absolute', left: p.x, top: p.y, width: 236, transform: `rotate(${p.rot}deg)` }}
+                >
+                  <span className="washi" style={{ top: -10, left: 70, width: 74, height: 20, background: p.tape, transform: 'rotate(-3deg)' }} />
+                  <div className="ruled-paper" style={{ padding: '16px 18px 14px' }}>
+                    <span className="font-display block" style={{ fontWeight: 900, fontSize: 28, color: 'rgba(201,64,64,.85)', lineHeight: 1 }}>{p.local}</span>
+                    <span className="font-display block" style={{ fontWeight: 800, fontSize: 18, marginTop: 8, lineHeight: 1.15 }}>{p.title}</span>
+                    <span className="font-hand block" style={{ fontSize: 19, marginTop: 4 }}>{p.note}</span>
+                    <span className="block font-semibold" style={{ fontSize: 10.5, marginTop: 6, color: '#a86030' }}>{p.meta}</span>
+                  </div>
+                </div>
+              ))}
+              <div
+                className="absolute"
+                style={{ left: 372, top: 214, width: 132, padding: '18px 13px 13px', background: 'linear-gradient(180deg, #fdf3b9, #f7e88e)', transform: 'rotate(5deg)', boxShadow: '0 2px 3px rgba(44,24,16,.14), 0 14px 30px -6px rgba(44,24,16,.3)' }}
+              >
+                <span className="washi" style={{ top: -9, left: 34, width: 60, height: 18, background: 'rgba(232,168,184,.65)', transform: 'rotate(-2deg)' }} />
+                <p className="font-hand m-0" style={{ fontSize: 17, lineHeight: 1.25, color: '#4a3520' }}>get a Suica card at the airport!</p>
+              </div>
+              <div className="landing-stamp absolute" style={{ left: 372, top: 70 }}>
+                <PostmarkMark size={150} ringText />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── How it goes: a real sequence, joined by the plane's trail ── */}
+        <section className="mx-auto" style={{ maxWidth: 1080, padding: '0 20px 104px' }}>
+          <h2 className="font-display m-0" style={{ fontWeight: 800, fontSize: 'clamp(30px, 4vw, 40px)', letterSpacing: '-.02em' }}>
+            From a link to a plan in three moves
+          </h2>
+          <ol className="grid gap-10 md:grid-cols-3 list-none p-0 relative" style={{ margin: '36px 0 0' }}>
+            <span aria-hidden="true" className="hidden md:block absolute" style={{ left: '8%', right: '8%', top: 22, borderTop: '3px dotted rgba(126,154,181,.7)' }} />
+            {[
+              ['Paste a link', 'Drop in a TikTok, YouTube video, Instagram post or article. The places in it come out as pins, with their local names.'],
+              ['Shape the board', 'Drag pins around, filter by food or culture, stick notes on, and stamp a passport for any place to see its hours and prices.'],
+              ['Open the binder', 'One tap plans every day around your pins, at your pace, then checks the plan against opening hours and last trains.'],
+            ].map(([title, body], i) => (
+              <li key={title} className="relative">
+                <span
+                  className="font-hand relative flex items-center justify-center"
+                  style={{ width: 46, height: 46, borderRadius: '50%', background: '#fffef9', border: '2px solid #c94040', color: '#c94040', fontSize: 26, fontWeight: 700 }}
+                >
+                  {i + 1}
+                </span>
+                <h3 className="font-display" style={{ margin: '16px 0 0', fontWeight: 800, fontSize: 22 }}>{title}</h3>
+                <p style={{ margin: '8px 0 0', fontSize: 15, lineHeight: 1.6, color: INK_SOFT, maxWidth: 320 }}>{body}</p>
+              </li>
+            ))}
+          </ol>
+          <p style={{ margin: '40px 0 0', fontSize: 15, color: INK_SOFT }}>
+            Can&rsquo;t pick a city yet?{' '}
+            <Link href="/decide" className="font-semibold underline underline-offset-4 decoration-[#7e9ab5]/60 hover:decoration-[#3a5f7a]" style={{ color: '#3a5f7a' }}>
+              Compare destinations first
+            </Link>
+          </p>
+        </section>
+
+        {/* ── The binder ── */}
+        <section
+          style={{
+            background: '#201209',
+            backgroundImage: 'radial-gradient(ellipse at 20% -10%, rgba(201,168,76,.16), transparent 55%)',
+            color: CREAM,
+          }}
+        >
+          <div className="mx-auto grid gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" style={{ maxWidth: 1180, padding: '96px 20px' }}>
+            <div>
+              <h2 className="font-display m-0" style={{ fontWeight: 800, fontSize: 'clamp(34px, 4.6vw, 52px)', lineHeight: 1.05, letterSpacing: '-.02em' }}>
+                Then the board becomes a binder.
+              </h2>
+              <p style={{ margin: '18px 0 0', fontSize: 17, lineHeight: 1.6, color: CREAM_SOFT, maxWidth: 460 }}>
+                Each day is a page with times, travel and meals, checked against how the city actually runs.
+              </p>
+
+              {/* A day page, as the itinerary draws it */}
+              <div className="relative" style={{ marginTop: 40, paddingLeft: 26, maxWidth: 470 }}>
+                <span
+                  className="inline-block font-extrabold"
+                  style={{ marginLeft: -26, marginBottom: 22, padding: '5px 12px', border: '2px solid #8fbf7a', color: '#8fbf7a', borderRadius: 4, fontSize: 12, letterSpacing: '.14em', transform: 'rotate(-3deg)' }}
+                >
+                  CHECKED
+                </span>
+                <span aria-hidden="true" className="absolute" style={{ left: 5, top: 62, bottom: 6, width: 1, background: 'linear-gradient(180deg, rgba(201,168,76,.6), rgba(201,168,76,.1))' }} />
+                {DAY.map((b, i) => (
+                  <div key={b.time} className="relative" style={{ marginBottom: 24 }}>
+                    <span
+                      aria-hidden="true"
+                      className="absolute rounded-full"
+                      style={i === 0
+                        ? { left: -26, top: 6, width: 11, height: 11, background: GOLD, boxShadow: '0 0 12px rgba(201,168,76,.6)' }
+                        : { left: -26, top: 6, width: 11, height: 11, border: '2px solid rgba(201,168,76,.5)', background: '#201209', boxSizing: 'border-box' }}
+                    />
+                    <div className="flex items-baseline flex-wrap" style={{ gap: 12 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: GOLD }}>{b.time}</span>
+                      <span className="font-display" style={{ fontWeight: 700, fontSize: 21 }}>{b.what}</span>
+                    </div>
+                    <p style={{ margin: '5px 0 0', fontSize: 13.5, lineHeight: 1.55, color: CREAM_SOFT }}>{b.note}</p>
+                  </div>
+                ))}
+                <div className="flex items-stretch" style={{ marginTop: 8, maxWidth: 360, background: CREAM, color: INK, borderRadius: 6 }}>
+                  <div style={{ padding: '12px 16px', flex: 1 }}>
+                    <span className="block font-display" style={{ fontWeight: 800, fontSize: 16 }}>Tokyo Skytree, sunset slot</span>
+                    <span className="block" style={{ fontSize: 12.5, color: INK_SOFT, marginTop: 2 }}>Book by 2 Nov. Sells out on weekends.</span>
+                  </div>
+                  <div className="flex items-center justify-center font-extrabold" style={{ width: 74, borderLeft: '2px dashed rgba(44,24,16,.3)', color: '#c94040', fontSize: 12 }}>
+                    To book
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:pt-3">
+              <dl className="grid sm:grid-cols-2 m-0" style={{ gap: '30px 36px' }}>
+                {BINDER_DOES.map(([term, desc]) => (
+                  <div key={term} style={{ borderTop: '1px solid rgba(201,168,76,.35)', paddingTop: 14 }}>
+                    <dt className="font-display" style={{ fontWeight: 700, fontSize: 19, color: CREAM }}>{term}</dt>
+                    <dd style={{ margin: '6px 0 0', fontSize: 14, lineHeight: 1.6, color: CREAM_SOFT }}>{desc}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
+
+          {/* ── Close ── */}
+          <div className="mx-auto flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between" style={{ maxWidth: 1180, padding: '0 20px 96px' }}>
+            <div className="flex items-center gap-5">
+              <PostmarkMark size={84} tone="dark" ringText />
+              <p className="font-display m-0" style={{ fontWeight: 800, fontSize: 'clamp(26px, 3.4vw, 34px)', lineHeight: 1.1, maxWidth: 520 }}>
+                Start with the Tokyo demo, then make your own board.
+              </p>
+            </div>
+            {demoButton('gold')}
+          </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="px-6 py-8" style={{ borderTop: '1px solid rgba(44,24,16,.1)' }}>
-        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-          <span>
-            <Logo fontSize={14} />
-          </span>
-          <p className="text-xs" style={{ color: 'rgba(44,24,16,.68)' }}>Plan trips that tell a story · © 2026 TravelClick</p>
+      <footer style={{ background: '#201209', borderTop: '1px solid rgba(201,168,76,.2)' }}>
+        <div className="mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" style={{ maxWidth: 1180, padding: '22px 20px' }}>
+          <Logo tone="dark" fontSize={15} />
+          <p className="m-0" style={{ fontSize: 12.5, color: CREAM_SOFT }}>© 2026 TravelClick. Plan trips that tell a story.</p>
         </div>
       </footer>
     </div>
