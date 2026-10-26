@@ -50,10 +50,11 @@ export function ShareBoard({ tripId, destination }: { tripId: string; destinatio
     <>
       <button
         onClick={openPanel}
+        aria-label="Share this board"
         className="inline-flex items-center gap-1.5 rounded-full font-semibold transition-colors hover:text-[#c94040]"
         style={{ padding: '7px 14px', fontSize: 11.5, color: INK, background: 'rgba(255,254,249,.7)', boxShadow: '0 2px 8px rgba(44,24,16,.12)' }}
       >
-        <UserPlus size={13} aria-hidden="true" /> Share
+        <UserPlus size={13} aria-hidden="true" /> <span className="hidden sm:inline">Share</span>
       </button>
 
       {typeof document !== 'undefined' && createPortal(

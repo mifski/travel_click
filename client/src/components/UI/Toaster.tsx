@@ -47,7 +47,7 @@ export function Toaster() {
   const dismiss = useToastStore((s) => s.dismiss)
 
   return (
-    <div className="fixed bottom-[30px] left-1/2 -translate-x-1/2 z-[400] flex flex-col gap-2 items-center pointer-events-none px-4 print:hidden">
+    <div className="fixed inset-x-0 bottom-[calc(24px+env(safe-area-inset-bottom))] z-[400] flex flex-col gap-2 items-center pointer-events-none px-4 print:hidden">
       <AnimatePresence>
         {toasts.map((t) => (
           <motion.button
@@ -58,10 +58,12 @@ export function Toaster() {
             exit={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
             onClick={() => dismiss(t.id)}
-            className="pointer-events-auto inline-flex items-center gap-2"
+            className="pointer-events-auto inline-flex items-center gap-2 text-left"
             style={{
-              padding: '12px 22px',
-              borderRadius: 999,
+              maxWidth: 'min(560px, 100%)',
+              padding: '12px 20px',
+              borderRadius: 18,
+              lineHeight: 1.45,
               background: '#2c1810',
               color: '#f2ead8',
               fontSize: 13,

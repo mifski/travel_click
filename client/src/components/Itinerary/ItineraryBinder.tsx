@@ -178,7 +178,7 @@ export function ItineraryBinder({
   return (
     <>
       {/* ── Day tabs ── */}
-      <div className="flex items-center flex-wrap" style={{ gap: 8, padding: '22px 40px 0' }}>
+      <div className="swipe-row sm:flex-wrap items-center" style={{ gap: 8, padding: '22px var(--gutter) 4px' }}>
         {itinerary.days.map((d, i) => {
           const active = i === activeDay
           const short = d.theme.split(/[:—–]/)[0].trim()
@@ -206,7 +206,7 @@ export function ItineraryBinder({
           )
         })}
         {day.estimatedCost && (
-          <span className="ml-auto" style={{ fontSize: 11.5, color: cream(0.55) }}>
+          <span className="ml-auto pl-2 whitespace-nowrap" style={{ fontSize: 11.5, color: cream(0.55) }}>
             Day est. <span style={{ color: '#c9a84c', fontWeight: 700 }}>{day.estimatedCost}</span>
           </span>
         )}
@@ -221,10 +221,10 @@ export function ItineraryBinder({
           exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.22 }}
           className="flex flex-wrap"
-          style={{ gap: 36, padding: '26px 40px 0' }}
+          style={{ gap: 36, padding: '26px var(--gutter) 0' }}
         >
           {/* Timeline */}
-          <div className="relative flex-1" style={{ paddingLeft: 26, minWidth: 320 }}>
+          <div className="relative flex-1" style={{ paddingLeft: 26, minWidth: 'min(320px, 100%)' }}>
             <span
               aria-hidden="true"
               className="absolute"

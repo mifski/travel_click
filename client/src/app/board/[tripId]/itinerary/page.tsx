@@ -146,11 +146,11 @@ export default function ItineraryPage() {
       <div className="mx-auto print-hidden" style={{ maxWidth: 1280 }}>
 
         {/* ── Top bar ── */}
-        <div className="flex items-center justify-between flex-wrap gap-4" style={{ padding: '20px 40px' }}>
+        <div className="flex items-center justify-between flex-wrap gap-x-4 gap-y-3" style={{ padding: '20px var(--gutter)' }}>
           <Link href={`/board/${tripId}`} className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#f2ead8' }}>
             <Logo tone="dark" fontSize={19} />
           </Link>
-          <div className="flex flex-wrap" style={{ gap: 26, fontSize: 12, color: cream(0.55) }}>
+          <div className="swipe-row order-last sm:order-none w-full sm:w-auto" style={{ gap: 26, fontSize: 12.5, color: cream(0.55), paddingBottom: 4 }}>
             <Link href={`/board/${tripId}`} className="transition-colors hover:text-[#f2ead8]">← Moodboard</Link>
             <span style={{ color: '#f2ead8', borderBottom: '2px solid #c9a84c', paddingBottom: 3 }}>Itinerary</span>
             {navLinks.map((l) => (
@@ -164,19 +164,21 @@ export default function ItineraryPage() {
               <>
                 <button
                   onClick={() => window.print()}
-                  className="rounded-full transition-all hover:border-[#c9a84c] hover:text-[#c9a84c] inline-flex items-center gap-1.5"
-                  style={{ padding: '7px 16px', border: `1px solid ${cream(0.25)}`, color: cream(0.7), fontSize: 11.5 }}
+                  aria-label="Print or save as PDF"
+                  className="rounded-full transition-all hover:border-[#c9a84c] hover:text-[#c9a84c] inline-flex items-center justify-center gap-1.5 min-w-[36px] min-h-[36px]"
+                  style={{ padding: '7px 12px', border: `1px solid ${cream(0.25)}`, color: cream(0.7), fontSize: 11.5 }}
                 >
-                  <Printer size={13} aria-hidden="true" /> Print / PDF
+                  <Printer size={13} aria-hidden="true" /> <span className="hidden sm:inline">Print / PDF</span>
                 </button>
                 <button
                   onClick={() => generate()}
                   disabled={loading || refining}
                   title="Regenerate the whole itinerary"
-                  className="rounded-full transition-all hover:border-[#c9a84c] hover:text-[#c9a84c] disabled:opacity-40 inline-flex items-center gap-1.5"
-                  style={{ padding: '7px 16px', border: `1px solid ${cream(0.25)}`, color: cream(0.7), fontSize: 11.5 }}
+                  aria-label="Regenerate the whole itinerary"
+                  className="rounded-full transition-all hover:border-[#c9a84c] hover:text-[#c9a84c] disabled:opacity-40 inline-flex items-center justify-center gap-1.5 min-w-[36px] min-h-[36px]"
+                  style={{ padding: '7px 12px', border: `1px solid ${cream(0.25)}`, color: cream(0.7), fontSize: 11.5 }}
                 >
-                  <RotateCw size={13} aria-hidden="true" /> Regenerate
+                  <RotateCw size={13} aria-hidden="true" /> <span className="hidden sm:inline">Regenerate</span>
                 </button>
               </>
             )}
@@ -190,12 +192,12 @@ export default function ItineraryPage() {
         </div>
 
         {/* ── Masthead ── */}
-        <div className="flex items-end justify-between flex-wrap gap-4" style={{ padding: '22px 40px 6px' }}>
+        <div className="flex items-end justify-between flex-wrap gap-4" style={{ padding: '22px var(--gutter) 6px' }}>
           <div className="relative">
-            <div style={{ fontSize: 11, letterSpacing: '.3em', color: '#c9a84c', fontWeight: 600, marginBottom: 8 }}>
+            <div style={{ fontSize: 11, letterSpacing: '.2em', lineHeight: 1.6, color: '#c9a84c', fontWeight: 600, marginBottom: 8 }}>
               THE BINDER · {dateRange} · {trip.paxCount} TRAVELLER{trip.paxCount > 1 ? 'S' : ''}
             </div>
-            <h1 className="font-display m-0" style={{ fontWeight: 800, fontSize: 72, lineHeight: 0.92, color: '#f2ead8', letterSpacing: '-.02em' }}>
+            <h1 className="font-display m-0" style={{ fontWeight: 800, fontSize: 'clamp(44px, 12vw, 72px)', lineHeight: 0.95, color: '#f2ead8', letterSpacing: '-.02em' }}>
               {trip.destination},{' '}
               <span className="italic" style={{ fontWeight: 500, color: cream(0.75) }}>day by day</span>
             </h1>
@@ -207,7 +209,7 @@ export default function ItineraryPage() {
               {ghost}
             </span>
           </div>
-          <div className="flex flex-col items-end" style={{ gap: 14 }}>
+          <div className="flex flex-col items-start sm:items-end" style={{ gap: 14 }}>
           {itinerary && (
             <PaceControl
               key={`${trip.pace}-${trip.dayStart}-${trip.discovery}-${trip.homeBase}`}
@@ -226,9 +228,9 @@ export default function ItineraryPage() {
             />
           )}
           {itinerary?.totalEstimatedCost && (
-            <div className="flex flex-col items-end gap-1.5">
+            <div className="flex flex-col items-start sm:items-end gap-1.5">
               <span style={{ fontSize: 12, color: cream(0.55) }}>Trip total (est.)</span>
-              <span className="font-display" style={{ fontWeight: 800, fontSize: 30, color: '#c9a84c' }}>
+              <span className="font-display" style={{ fontWeight: 800, fontSize: 'clamp(22px, 6vw, 30px)', color: '#c9a84c' }}>
                 {itinerary.totalEstimatedCost}
               </span>
             </div>
@@ -238,7 +240,7 @@ export default function ItineraryPage() {
 
         {/* ── Error state ── */}
         {error && !loading && (
-          <div className="flex flex-col items-center gap-5" style={{ padding: '60px 40px' }}>
+          <div className="flex flex-col items-center gap-5" style={{ padding: '60px var(--gutter)' }}>
             <p className="font-hand text-center" style={{ fontSize: 24, color: cream(0.7), maxWidth: 420 }}>
               the binder didn&rsquo;t make it off the press: {error}
             </p>
@@ -272,7 +274,7 @@ export default function ItineraryPage() {
 
             {/* General tips */}
             {itinerary.generalTips?.length > 0 && (
-              <div style={{ padding: '40px 40px 0', maxWidth: 900 }}>
+              <div style={{ padding: '40px var(--gutter) 0', maxWidth: 900 }}>
                 <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '.2em', color: 'rgba(201,168,76,.7)' }}>
                   GOOD TO KNOW
                 </span>

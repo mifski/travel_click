@@ -213,7 +213,7 @@ export function BookByList({ tripId, report, marks, destination }: { tripId: str
   }
 
   return (
-    <div style={{ padding: '40px 40px 0' }}>
+    <div style={{ padding: '40px var(--gutter) 0' }}>
       <div className="flex items-center flex-wrap" style={{ gap: 16, marginBottom: 12 }}>
         <span style={label}>BOOK-BY LIST</span>
         <button

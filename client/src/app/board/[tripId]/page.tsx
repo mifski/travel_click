@@ -20,7 +20,8 @@ import { getCategoryFromTags, getChipGroup, CHIP_GROUPS } from '@/lib/categories
 import { DEMO_TRIP_ID, seedDemo } from '@/lib/demo-data'
 import { getTripStatus, formatDateRange } from '@/lib/utils'
 import type { GeneratedItinerary } from '@/lib/types'
-import { Logo } from '@/components/UI/Logo'
+import { Logo, PostmarkMark } from '@/components/UI/Logo'
+import { useCompact } from '@/lib/use-media'
 import { ShareBoard } from '@/components/Board/ShareBoard'
 
 type ToolTab = 'stays' | 'brief' | 'packing' | 'budget' | null
@@ -61,6 +62,7 @@ export default function BoardPage() {
   const [demoBanner, setDemoBanner] = useState(true)
 
   const { user, profile } = useAuth()
+  const compact = useCompact()
   const isDemo = tripId === DEMO_TRIP_ID
 
   useEffect(() => { setMounted(true) }, [])
@@ -179,7 +181,7 @@ export default function BoardPage() {
       {/* ── Demo ribbon ── */}
       {isDemo && demoBanner && (
         <div
-          className="relative z-10 px-4 py-2 flex items-center justify-center gap-3 text-[12.5px] font-medium"
+          className="relative z-10 pl-4 pr-10 py-2 flex items-center justify-center gap-x-3 gap-y-0.5 flex-wrap text-[12px] sm:text-[12.5px] font-medium"
           style={{ background: '#2c1810', color: '#f2ead8' }}
         >
           <span>You&rsquo;re exploring the demo board. Everything works, nothing is saved to an account.</span>
@@ -187,7 +189,7 @@ export default function BoardPage() {
             Sign up free
           </Link>
           <button onClick={() => setDemoBanner(false)} aria-label="Dismiss demo banner"
-            className="absolute right-3 opacity-60 hover:opacity-100">
+            className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5 opacity-60 hover:opacity-100">
             <X size={13} />
           </button>
         </div>
@@ -196,26 +198,27 @@ export default function BoardPage() {
       <div className="relative mx-auto" style={{ maxWidth: 1280 }}>
 
         {/* ── Top bar ── */}
-        <div className="flex items-center justify-between" style={{ padding: '18px 42px 0' }}>
-          <div className="flex items-center gap-5">
-            <Link href={isDemo ? '/' : '/boards'} className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
-              <Logo fontSize={19} />
+        <div className="flex items-center justify-between gap-3" style={{ padding: '18px var(--gutter) 0' }}>
+          <div className="flex items-center gap-5 min-w-0">
+            <Link href={isDemo ? '/' : '/boards'} aria-label="TravelClick boards" className="font-display shrink-0" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
+              <span className="sm:hidden"><PostmarkMark size={32} /></span>
+              <span className="hidden sm:inline"><Logo fontSize={19} /></span>
             </Link>
-            <span style={{ fontSize: 12, color: 'rgba(44,24,16,.68)' }}>
+            <span className="hidden sm:inline" style={{ fontSize: 12, color: 'rgba(44,24,16,.68)' }}>
               <Link href={isDemo ? '/' : '/boards'} className="hover:text-[#2c1810] transition-colors">Boards</Link>
               &nbsp;&nbsp;/&nbsp;&nbsp;
               <span style={{ color: '#2c1810', fontWeight: 500 }}>{trip.destination}</span>
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {!isDemo && <ShareBoard tripId={tripId} destination={trip.destination} />}
             <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(255,254,249,.7)', boxShadow: '0 2px 8px rgba(44,24,16,.12)' }}>
-              <span className="px-4 py-[7px] rounded-full font-semibold" style={{ background: '#2c1810', color: '#f2ead8', fontSize: 11.5 }}>
+              <span className="px-3 sm:px-4 py-[7px] rounded-full font-semibold" style={{ background: '#2c1810', color: '#f2ead8', fontSize: 11.5 }}>
                 Moodboard
               </span>
               <button
                 onClick={goItinerary}
-                className="px-4 py-[7px] rounded-full font-semibold transition-colors hover:text-[#c94040]"
+                className="px-3 sm:px-4 py-[7px] rounded-full font-semibold transition-colors hover:text-[#c94040]"
                 style={{ color: 'rgba(44,24,16,.68)', fontSize: 11.5 }}
               >
                 Itinerary ✦
@@ -238,7 +241,7 @@ export default function BoardPage() {
         </div>
 
         {/* ── Masthead ── */}
-        <div className="relative flex items-end justify-between flex-wrap gap-6" style={{ padding: '24px 42px 0' }}>
+        <div className="relative flex items-end justify-between flex-wrap gap-6" style={{ padding: '24px var(--gutter) 0' }}>
           <div className="relative z-[2]">
             <div className="flex items-center gap-3 mb-1.5">
               <span className="uppercase font-semibold" style={{ fontSize: 11, letterSpacing: '.22em', color: '#c94040' }}>
@@ -253,7 +256,7 @@ export default function BoardPage() {
             </div>
             <h1
               className="font-display m-0 italic"
-              style={{ fontWeight: 800, fontSize: 76, lineHeight: 0.95, color: '#2c1810', letterSpacing: '-.03em' }}
+              style={{ fontWeight: 800, fontSize: 'clamp(52px, 14vw, 76px)', lineHeight: 0.95, color: '#2c1810', letterSpacing: '-.03em' }}
             >
               {trip.destination}
             </h1>
@@ -302,7 +305,7 @@ export default function BoardPage() {
         </div>
 
         {/* ── Luggage-tag filters ── */}
-        <div className="relative z-[3] flex items-center flex-wrap" style={{ gap: 10, padding: '20px 42px 6px' }}>
+        <div className="relative z-[3] flex items-center flex-wrap" style={{ gap: 10, padding: '20px var(--gutter) 6px' }}>
           <button
             className="luggage-tag"
             onClick={() => setActiveFilter(null)}
@@ -335,8 +338,9 @@ export default function BoardPage() {
         </div>
 
         {/* ── Collage ── */}
-        <div className="overflow-x-auto" style={{ padding: '18px 42px 0' }}>
+        <div className={compact ? '' : 'overflow-x-auto'} style={{ padding: '18px var(--gutter) 0' }}>
           <CollageBoard
+            compact={compact}
             trip={trip}
             cards={cards}
             notes={notes}
@@ -348,10 +352,10 @@ export default function BoardPage() {
 
         {/* ── Bottom action strip ── */}
         <div
-          className="sticky bottom-0 z-40 flex items-center justify-between flex-wrap gap-3"
-          style={{ padding: '22px 42px 18px', background: 'linear-gradient(180deg, transparent, rgba(233,223,205,.95) 45%)' }}
+          className="sticky bottom-0 z-40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3"
+          style={{ padding: compact ? '18px 0 calc(12px + env(safe-area-inset-bottom))' : '22px var(--gutter) 18px', background: 'linear-gradient(180deg, transparent, rgba(233,223,205,.97) 35%)' }}
         >
-          <div className="flex flex-wrap" style={{ gap: 8 }}>
+          <div className={compact ? 'swipe-row' : 'flex flex-wrap'} style={{ gap: 8, padding: compact ? '4px var(--gutter)' : 0 }}>
             <button onClick={() => setPinOpen(true)} className="pill-coral pill-lift flex items-center gap-2 rounded-full font-semibold" style={{ padding: '10px 18px', fontSize: 12.5 }}>
               <Link2 size={14} aria-hidden="true" /> Add a place
             </button>
@@ -372,8 +376,8 @@ export default function BoardPage() {
           <button
             onClick={goItinerary}
             disabled={generating}
-            className="pill-ink pill-lift flex items-center gap-2 font-semibold disabled:opacity-60"
-            style={{ padding: '14px 28px', borderRadius: 12, fontSize: 14.5 }}
+            className="pill-ink pill-lift flex items-center justify-center gap-2 font-semibold disabled:opacity-60"
+            style={{ padding: '14px 28px', borderRadius: 12, fontSize: 14.5, margin: compact ? '0 var(--gutter)' : 0 }}
           >
             {itinerary ? 'Open my binder ✦' : 'Assemble my binder ✦'}
           </button>

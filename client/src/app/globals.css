@@ -324,3 +324,12 @@ body::after {
 @media (prefers-reduced-motion: reduce) { .landing-stamp { animation: none; } }
 /* The collage is drawn at 520px wide; shrink it on narrow screens */
 @media (max-width: 560px) { :root { --collage-scale: .66; } }
+
+/* Page side margin: roomy on desktop, tight on phones */
+:root { --gutter: 42px; }
+@media (max-width: 640px) { :root { --gutter: 16px; } }
+
+/* A row that scrolls sideways on phones instead of wrapping into a tall stack */
+.swipe-row { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.swipe-row::-webkit-scrollbar { display: none; }
+.swipe-row > * { flex-shrink: 0; }
