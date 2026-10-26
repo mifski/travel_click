@@ -14,6 +14,7 @@ import { BookByList, PaceControl } from '@/components/Itinerary/RealityPanel'
 import { EMPTY_MARKS } from '@/lib/reality'
 import { formatDateRange } from '@/lib/utils'
 import { Printer, RotateCw } from 'lucide-react'
+import { Logo } from '@/components/UI/Logo'
 
 const cream = (a: number) => `rgba(242,234,216,${a})`
 
@@ -147,7 +148,7 @@ export default function ItineraryPage() {
         {/* ── Top bar ── */}
         <div className="flex items-center justify-between flex-wrap gap-4" style={{ padding: '20px 40px' }}>
           <Link href={`/board/${tripId}`} className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#f2ead8' }}>
-            TravelClick<span style={{ color: '#c9a84c' }}>.</span>
+            <Logo tone="dark" fontSize={19} />
           </Link>
           <div className="flex flex-wrap" style={{ gap: 26, fontSize: 12, color: cream(0.55) }}>
             <Link href={`/board/${tripId}`} className="transition-colors hover:text-[#f2ead8]">← Moodboard</Link>
@@ -206,6 +207,7 @@ export default function ItineraryPage() {
               {ghost}
             </span>
           </div>
+          <div className="flex flex-col items-end" style={{ gap: 14 }}>
           {itinerary && (
             <PaceControl
               key={`${trip.pace}-${trip.dayStart}-${trip.discovery}-${trip.homeBase}`}
@@ -224,13 +226,14 @@ export default function ItineraryPage() {
             />
           )}
           {itinerary?.totalEstimatedCost && (
-            <div className="flex flex-col items-end gap-1.5" style={{ paddingBottom: 8 }}>
+            <div className="flex flex-col items-end gap-1.5">
               <span style={{ fontSize: 12, color: cream(0.55) }}>Trip total (est.)</span>
               <span className="font-display" style={{ fontWeight: 800, fontSize: 30, color: '#c9a84c' }}>
                 {itinerary.totalEstimatedCost}
               </span>
             </div>
           )}
+          </div>
         </div>
 
         {/* ── Error state ── */}

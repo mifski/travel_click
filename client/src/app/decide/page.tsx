@@ -13,6 +13,7 @@ import { useTripStore } from '@/lib/store'
 import { toast } from '@/components/UI/Toaster'
 import type { DestinationComparison, DestinationScore, TempPreference, TripContext } from '@/lib/types'
 import { generateId, googleFlightsUrl, cn } from '@/lib/utils'
+import { Logo } from '@/components/UI/Logo'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
@@ -176,7 +177,7 @@ export default function DecidePage() {
             <ArrowLeft size={18} />
           </Link>
           <Link href="/" className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
-            TravelClick<span style={{ color: '#c94040' }}>.</span>
+            <Logo fontSize={19} />
           </Link>
           <span style={{ fontSize: 12, color: 'rgba(44,24,16,.68)' }}>/&nbsp;&nbsp;Destination decider</span>
         </div>

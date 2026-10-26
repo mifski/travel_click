@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { seedDemo } from '@/lib/demo-data'
+import { Logo } from '@/components/UI/Logo'
 
 export default function LandingPage() {
   const { user, loading } = useAuth()
@@ -41,7 +42,7 @@ export default function LandingPage() {
       <header className="px-6 sm:px-10 py-5 flex items-center justify-between sticky top-0 z-50"
         style={{ background: 'rgba(233,223,205,.85)', backdropFilter: 'blur(8px)' }}>
         <span className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
-          TravelClick<span style={{ color: '#c94040' }}>.</span>
+          <Logo fontSize={19} />
         </span>
         <div className="flex items-center gap-3">
           <Link href="/auth/login" className="text-sm font-medium px-4 py-2 transition-colors hover:text-[#2c1810]" style={{ color: 'rgba(44,24,16,.68)' }}>
@@ -295,8 +296,8 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="px-6 py-8" style={{ borderTop: '1px solid rgba(44,24,16,.1)' }}>
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-          <span className="font-display text-sm" style={{ fontWeight: 800, color: '#2c1810' }}>
-            TravelClick<span style={{ color: '#c94040' }}>.</span>
+          <span>
+            <Logo fontSize={14} />
           </span>
           <p className="text-xs" style={{ color: 'rgba(44,24,16,.68)' }}>Plan trips that tell a story · © 2026 TravelClick</p>
         </div>

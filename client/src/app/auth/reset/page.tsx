@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, MailCheck } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { Logo } from '@/components/UI/Logo'
 
 /** Two modes on one page: request a reset email, or (arriving from that email) set a new password */
 export default function ResetPasswordPage() {
@@ -63,7 +64,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="scrapbook-bg min-h-dvh flex flex-col items-center justify-center px-4">
       <Link href="/" className="font-display mb-10" style={{ fontWeight: 800, fontSize: 20, color: '#2c1810', letterSpacing: '-.02em' }}>
-        TravelClick<span style={{ color: '#c94040' }}>.</span>
+        <Logo fontSize={20} />
       </Link>
 
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}

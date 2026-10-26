@@ -3,6 +3,7 @@ import { Geist, Playfair_Display, Caveat } from 'next/font/google'
 import { AuthProvider } from '@/lib/auth-context'
 import { Toaster } from '@/components/UI/Toaster'
 import { MotionProvider } from '@/components/UI/MotionProvider'
+import { SplashScreen } from '@/components/UI/SplashScreen'
 import './globals.css'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
@@ -34,7 +35,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${geistSans.variable} ${playfair.variable} ${caveat.variable} h-full`} suppressHydrationWarning>
+      <head>
+        {/* Hide the splash before paint on reloads within the same session */}
+        <script dangerouslySetInnerHTML={{ __html: "try{if(sessionStorage.getItem('tc-splash-seen'))document.documentElement.classList.add('tc-seen')}catch(e){}" }} />
+      </head>
       <body className="min-h-full flex flex-col antialiased" style={{ background: '#e9dfcd' }}>
+        <SplashScreen />
         <MotionProvider>
           <AuthProvider>
             {children}

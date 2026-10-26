@@ -18,6 +18,7 @@ import { toast } from '@/components/UI/Toaster'
 import type { AgeRange, TripObjective, PriceRange, TripContext } from '@/lib/types'
 import { OBJECTIVE_LABELS, PRICE_RANGE_LABELS } from '@/lib/types'
 import { formatDate, getDayCount, getTripStatus, cn } from '@/lib/utils'
+import { Logo } from '@/components/UI/Logo'
 
 const STAMP_STYLE: Record<'upcoming' | 'ongoing' | 'past', string> = {
   upcoming: 'text-[#c94040]',
@@ -129,7 +130,7 @@ export default function BoardsPage() {
       <header className="px-6 sm:px-10 py-4 flex items-center justify-between"
         style={{ background: 'rgba(233,223,205,.85)', backdropFilter: 'blur(8px)' }}>
         <span className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
-          TravelClick<span style={{ color: '#c94040' }}>.</span>
+          <Logo fontSize={19} />
         </span>
         <div className="flex items-center gap-3">
           <Link href="/profile" className="flex items-center gap-2 group">

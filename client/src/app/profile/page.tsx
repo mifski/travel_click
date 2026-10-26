@@ -10,6 +10,7 @@ import { uploadAvatar, upsertProfile } from '@/lib/supabase'
 import { AvatarUpload } from '@/components/Auth/AvatarUpload'
 import { toast } from '@/components/UI/Toaster'
 import { cn } from '@/lib/utils'
+import { Logo } from '@/components/UI/Logo'
 
 type Gender = 'man' | 'woman' | 'nonbinary' | 'other' | 'prefer_not'
 const GENDERS: { value: Gender; label: string }[] = [
@@ -99,7 +100,7 @@ export default function ProfilePage() {
           <ArrowLeft size={18} />
         </Link>
         <span className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
-          TravelClick<span style={{ color: '#c94040' }}>.</span>
+          <Logo fontSize={19} />
         </span>
         <span style={{ fontSize: 12, color: 'rgba(44,24,16,.68)' }}>/&nbsp;&nbsp;Profile</span>
       </header>

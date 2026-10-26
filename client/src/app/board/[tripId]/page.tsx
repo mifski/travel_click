@@ -20,6 +20,7 @@ import { getCategoryFromTags, getChipGroup, CHIP_GROUPS } from '@/lib/categories
 import { DEMO_TRIP_ID, seedDemo } from '@/lib/demo-data'
 import { getTripStatus, formatDateRange } from '@/lib/utils'
 import type { GeneratedItinerary } from '@/lib/types'
+import { Logo } from '@/components/UI/Logo'
 
 type ToolTab = 'stays' | 'brief' | 'packing' | 'budget' | null
 
@@ -197,7 +198,7 @@ export default function BoardPage() {
         <div className="flex items-center justify-between" style={{ padding: '18px 42px 0' }}>
           <div className="flex items-center gap-5">
             <Link href={isDemo ? '/' : '/boards'} className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
-              TravelClick<span style={{ color: '#c94040' }}>.</span>
+              <Logo fontSize={19} />
             </Link>
             <span style={{ fontSize: 12, color: 'rgba(44,24,16,.68)' }}>
               <Link href={isDemo ? '/' : '/boards'} className="hover:text-[#2c1810] transition-colors">Boards</Link>

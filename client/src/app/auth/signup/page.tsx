@@ -9,6 +9,7 @@ import { supabase, upsertProfile, uploadAvatar } from '@/lib/supabase'
 import { OTPInput } from '@/components/Auth/OTPInput'
 import { AvatarUpload } from '@/components/Auth/AvatarUpload'
 import { cn } from '@/lib/utils'
+import { Logo } from '@/components/UI/Logo'
 
 type Gender = 'man' | 'woman' | 'nonbinary' | 'other' | 'prefer_not'
 
@@ -136,7 +137,7 @@ export default function SignupPage() {
 
       {/* Logo */}
       <Link href="/" className="font-display mb-8" style={{ fontWeight: 800, fontSize: 20, color: '#2c1810', letterSpacing: '-.02em' }}>
-        TravelClick<span style={{ color: '#c94040' }}>.</span>
+        <Logo fontSize={20} />
       </Link>
 
       {/* Step bar */}
