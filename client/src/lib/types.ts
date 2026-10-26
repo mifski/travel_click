@@ -18,6 +18,16 @@ export type TripObjective =
 export type PriceRange = 'budget' | 'mid' | 'luxury'
 export type CardSource = 'youtube' | 'tiktok' | 'instagram' | 'xiaohongshu' | 'article' | 'ai' | 'manual'
 export type TripPace = 'slow' | 'balanced' | 'full'
+/** Classic-to-gems dial: 0 = famous icons only … 4 = hidden gems only */
+export type TripDiscovery = 0 | 1 | 2 | 3 | 4
+
+export const DISCOVERY_LABELS: Record<TripDiscovery, string> = {
+  0: 'Icons only',
+  1: 'Mostly classics',
+  2: 'Half & half',
+  3: 'Mostly gems',
+  4: 'Gems only',
+}
 
 export interface TripContext {
   id: string
@@ -32,6 +42,8 @@ export interface TripContext {
   createdAt: string
   pace?: TripPace
   dayStart?: string // "09:00"
+  discovery?: TripDiscovery
+  homeBase?: string // hotel name or neighbourhood every day starts and ends at
 }
 
 export interface CardLocation {
@@ -143,6 +155,20 @@ export interface RealityMarks {
   stubs: Record<string, StubStatus>
   facts: Record<string, string>
   dismissed: Record<string, true>
+}
+
+/** Pin passport: the practical facts for one saved place. AI-sourced, so unverified. */
+export interface PinPassport {
+  cardId: string
+  stampedAt: string
+  kind: 'classic' | 'in-between' | 'gem'
+  hours: string
+  bestTime: string
+  timeNeeded: string
+  price: string
+  booking: string
+  tip: string
+  sourceUrl?: string
 }
 
 export interface GeneratedItinerary {

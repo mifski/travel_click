@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import type { TripContext, GeneratedItinerary, ItineraryDay, TripPace, BookedFlight } from '@/lib/types'
+import type { TripContext, GeneratedItinerary, ItineraryDay, TripPace, BookedFlight, TripDiscovery } from '@/lib/types'
 import { getDayCount } from '@/lib/utils'
 import { rateLimit, clamp } from '@/lib/api-guard'
 
@@ -10,6 +10,14 @@ const PACE_STOPS: Record<TripPace, string> = {
   slow: '2–3 stops a day (meals not counted), long unhurried gaps',
   balanced: '3–4 stops a day (meals not counted)',
   full: '5–6 stops a day (meals not counted), still with one rest block',
+}
+
+const DISCOVERY_MIX: Record<TripDiscovery, string> = {
+  0: 'famous must-sees only: the icons a first-timer would regret missing',
+  1: 'mostly well-known highlights, with one local favourite a day',
+  2: 'an even mix of famous highlights and lesser-known local spots',
+  3: 'mostly hidden gems and neighbourhood spots locals love, with at most one famous sight a day',
+  4: 'hidden gems only: skip the famous tourist sights and their crowds, choose places most visitors miss',
 }
 
 /** Business rules the model may skip: every day keeps a rest block and an anchor */
@@ -54,6 +62,8 @@ export async function POST(req: NextRequest) {
     .map((f) => `  • ${f.leg === 'return' ? 'Return' : f.leg === 'outbound' ? 'Outbound' : 'Flight'} ${clamp(f.flightNo, 12)} ${clamp(f.from, 40)} → ${clamp(f.to, 40)}: departs ${f.departAt.replace('T', ' ')}, arrives ${f.arriveAt.replace('T', ' ')} (local times)`)
   const pace: TripPace = (['slow', 'balanced', 'full'] as const).find((p) => p === trip.pace) ?? 'balanced'
   const dayStart = /^\d{1,2}:\d{2}$/.test(trip.dayStart ?? '') ? trip.dayStart : '09:00'
+  const discovery: TripDiscovery = ([0, 1, 2, 3, 4] as const).find((d) => d === trip.discovery) ?? 2
+  const homeBase = clamp(trip.homeBase, 120).trim()
   const ageContext = trip.ageRanges.length
     ? `Group includes: ${trip.ageRanges.join(', ')}.`
     : 'Adults only.'
@@ -81,7 +91,9 @@ TRIP DETAILS:
 - Goals: ${trip.objectives.join(', ')}
 - Budget: ${trip.priceRange}
 - Pace: ${pace} — ${PACE_STOPS[pace]}. Days start around ${dayStart}.
-
+- Added places (not the saved ones): ${DISCOVERY_MIX[discovery]}
+${homeBase ? `- Home base: ${homeBase}. Every day starts and ends here (except arrival and departure legs). First block of the day is travel from the base, last block is the way back, with real travel times. Keep each day's stops within easy reach of the base or along one line out and back.
+` : ''}
 ${placesContext}
 ${flights.length ? `
 BOOKED FLIGHTS (fixed, plan around them):

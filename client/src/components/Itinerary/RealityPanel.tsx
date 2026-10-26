@@ -1,6 +1,8 @@
 'use client'
 
-import type { ItineraryDay, RealityReport, RealityMarks, BookingStub, StubStatus, TripPace } from '@/lib/types'
+import { useState } from 'react'
+import type { ItineraryDay, RealityReport, RealityMarks, BookingStub, StubStatus, TripPace, TripContext, TripDiscovery } from '@/lib/types'
+import { DISCOVERY_LABELS } from '@/lib/types'
 import { useTripStore } from '@/lib/store'
 import { Star, Clock, Armchair, Umbrella, Coffee, Check, CalendarPlus, type LucideIcon } from 'lucide-react'
 import { type DayReality, checkAgainOn, daysUntil, sortStubs, stubDeadline, buildStubsIcs } from '@/lib/reality'
@@ -233,22 +235,32 @@ export function BookByList({ tripId, report, marks, destination }: { tripId: str
 
 /* ── Pace setting ── */
 
-export function PaceControl({ pace, dayStart, onApply, disabled }: {
-  pace: TripPace; dayStart: string; onApply: (pace: TripPace, dayStart: string) => void; disabled: boolean
+export type PlanSettings = Required<Pick<TripContext, 'pace' | 'dayStart' | 'discovery'>> & { homeBase: string }
+
+const field: React.CSSProperties = { background: '#201209', color: '#f2ead8', border: `1px solid ${cream(0.25)}`, borderRadius: 999 }
+
+export function PaceControl({ settings, onApply, disabled }: {
+  settings: PlanSettings; onApply: (settings: PlanSettings) => void; disabled: boolean
 }) {
+  const [discovery, setDiscovery] = useState<TripDiscovery>(settings.discovery)
   return (
     <form
       className="flex items-center flex-wrap"
-      style={{ gap: 8, fontSize: 11.5, color: cream(0.6) }}
+      style={{ gap: 8, fontSize: 11.5, color: cream(0.6), maxWidth: 520 }}
       onSubmit={(e) => {
         e.preventDefault()
         const f = new FormData(e.currentTarget)
-        onApply(f.get('pace') as TripPace, String(f.get('dayStart') || '09:00'))
+        onApply({
+          pace: f.get('pace') as TripPace,
+          dayStart: String(f.get('dayStart') || '09:00'),
+          discovery,
+          homeBase: String(f.get('homeBase') ?? '').trim(),
+        })
       }}
     >
       <label className="flex items-center" style={{ gap: 6 }}>
         Pace
-        <select name="pace" defaultValue={pace} style={{ background: '#201209', color: '#f2ead8', border: `1px solid ${cream(0.25)}`, borderRadius: 999, padding: '5px 10px' }}>
+        <select name="pace" defaultValue={settings.pace} style={{ ...field, padding: '5px 10px' }}>
           <option value="slow">Slow</option>
           <option value="balanced">Balanced</option>
           <option value="full">Full</option>
@@ -256,7 +268,29 @@ export function PaceControl({ pace, dayStart, onApply, disabled }: {
       </label>
       <label className="flex items-center" style={{ gap: 6 }}>
         Start
-        <input type="time" name="dayStart" defaultValue={dayStart} style={{ background: '#201209', color: '#f2ead8', border: `1px solid ${cream(0.25)}`, borderRadius: 999, padding: '4px 10px', colorScheme: 'dark' }} />
+        <input type="time" name="dayStart" defaultValue={settings.dayStart} style={{ ...field, padding: '4px 10px', colorScheme: 'dark' }} />
+      </label>
+      <label className="flex items-center" style={{ gap: 6 }}>
+        Classic
+        <input
+          type="range" min={0} max={4} step={1}
+          value={discovery}
+          onChange={(e) => setDiscovery(Number(e.target.value) as TripDiscovery)}
+          aria-valuetext={DISCOVERY_LABELS[discovery]}
+          style={{ width: 90, accentColor: GOLD }}
+        />
+        Gems
+        <span style={{ color: GOLD, minWidth: 92 }}>{DISCOVERY_LABELS[discovery]}</span>
+      </label>
+      <label className="flex items-center" style={{ gap: 6 }}>
+        Home base
+        <input
+          name="homeBase"
+          defaultValue={settings.homeBase}
+          placeholder="hotel or area"
+          maxLength={120}
+          style={{ ...field, padding: '5px 12px', width: 170 }}
+        />
       </label>
       <button type="submit" disabled={disabled} className="pill-gold rounded-full font-bold disabled:opacity-40" style={{ padding: '6px 14px', fontSize: 11.5 }}>
         Apply & regenerate

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { TravelCard, CardSource } from '@/lib/types'
 import { getCategoryFromTags } from '@/lib/categories'
 import { X, ExternalLink, MapPin, Copy, Check, Globe } from 'lucide-react'
+import { PinPassport } from './PinPassport'
 
 /* Source tags render as bare coloured text on the print border — no pill */
 const SOURCE_STYLES: Record<CardSource, { label: string; color: string }> = {
@@ -155,8 +156,8 @@ export function PostcardCard({ card, onRemove, style }: Props) {
             onClick={() => setExpanded(false)}
           >
             <motion.div
-              className="w-full max-w-md overflow-hidden"
-              style={{ background: '#fffef9', borderRadius: 16, boxShadow: '0 40px 90px -20px rgba(0,0,0,.6)' }}
+              className="w-full max-w-md overflow-y-auto"
+              style={{ maxHeight: '92dvh', background: '#fffef9', borderRadius: 16, boxShadow: '0 40px 90px -20px rgba(0,0,0,.6)' }}
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
@@ -237,6 +238,8 @@ export function PostcardCard({ card, onRemove, style }: Props) {
                 <p className="leading-relaxed mb-4 line-clamp-4" style={{ fontSize: 12.5, color: 'rgba(44,24,16,.7)' }}>
                   {card.description}
                 </p>
+
+                <PinPassport card={card} />
 
                 {card.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-4">

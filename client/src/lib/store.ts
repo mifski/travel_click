@@ -5,7 +5,7 @@ import { persist } from 'zustand/middleware'
 import type {
   TripContext, TravelCard, GeneratedItinerary, AgeRange, TripObjective, PriceRange,
   StickyNote, StickyColor, PackingList, TravelBrief, DestinationComparison, TripBudget,
-  RealityReport, RealityMarks, StubStatus,
+  RealityReport, RealityMarks, StubStatus, PinPassport,
 } from './types'
 import { generateId, generatePinPosition, randomInRange } from './utils'
 import { DEMO_TRIP_ID } from './demo-data'
@@ -21,6 +21,7 @@ interface TripStore {
   budgets: Record<string, TripBudget>
   realityChecks: Record<string, RealityReport>
   realityMarks: Record<string, RealityMarks>
+  passports: Record<string, Record<string, PinPassport>>
   lastComparison: DestinationComparison | null
   activeSetup: Partial<TripContext>
 
@@ -70,6 +71,9 @@ interface TripStore {
   setStubStatus: (tripId: string, key: string, status: StubStatus) => void
   markFactChecked: (tripId: string, key: string) => void
   dismissFinding: (tripId: string, key: string) => void
+
+  // Pin passport
+  savePassport: (tripId: string, passport: PinPassport) => void
 
   // Helpers
   getTrip: (tripId: string) => TripContext | null
@@ -143,6 +147,7 @@ export const useTripStore = create<TripStore>()(
       budgets: {},
       realityChecks: {},
       realityMarks: {},
+      passports: {},
       lastComparison: null,
       activeSetup: { ...DEFAULT_SETUP },
 
@@ -233,6 +238,7 @@ export const useTripStore = create<TripStore>()(
             budgets: omit(s.budgets),
             realityChecks: omit(s.realityChecks),
             realityMarks: omit(s.realityMarks),
+            passports: omit(s.passports),
           }
         }),
 
@@ -350,6 +356,9 @@ export const useTripStore = create<TripStore>()(
       markFactChecked: (tripId, key) =>
         set((s) => patchMarks(s, tripId, 'facts', key, new Date().toISOString().slice(0, 10))),
       dismissFinding: (tripId, key) => set((s) => patchMarks(s, tripId, 'dismissed', key, true)),
+
+      savePassport: (tripId, passport) =>
+        set((s) => ({ passports: { ...s.passports, [tripId]: { ...s.passports[tripId], [passport.cardId]: passport } } })),
 
       getTrip: (tripId) => get().trips.find((t) => t.id === tripId) ?? null,
 

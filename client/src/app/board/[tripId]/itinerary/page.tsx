@@ -208,13 +208,18 @@ export default function ItineraryPage() {
           </div>
           {itinerary && (
             <PaceControl
-              key={`${trip.pace}-${trip.dayStart}`}
-              pace={trip.pace ?? 'balanced'}
-              dayStart={trip.dayStart ?? '09:00'}
+              key={`${trip.pace}-${trip.dayStart}-${trip.discovery}-${trip.homeBase}`}
+              settings={{
+                pace: trip.pace ?? 'balanced',
+                dayStart: trip.dayStart ?? '09:00',
+                discovery: trip.discovery ?? 2,
+                homeBase: trip.homeBase ?? '',
+              }}
               disabled={loading || refining}
-              onApply={(pace, dayStart) => {
-                updateTrip(trip.id, { pace, dayStart })
-                void generate(undefined, { ...trip, pace, dayStart })
+              onApply={(settings) => {
+                const patch = { ...settings, homeBase: settings.homeBase || undefined }
+                updateTrip(trip.id, patch)
+                void generate(undefined, { ...trip, ...patch })
               }}
             />
           )}
