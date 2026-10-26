@@ -15,9 +15,9 @@ const GOLD = '#c9a84c'
 
 /* The same ruled-paper prints the board draws for pins without photos */
 const PRINTS = [
-  { local: '浅草寺', title: 'Sensō-ji at sunrise', note: 'go before the crowds', meta: 'Asakusa, from TikTok', rot: -4, x: 0, y: 34, tape: 'rgba(200,220,192,.75)' },
-  { local: '明治神宮', title: 'Forest calm in the city', note: 'weekend weddings!', meta: 'Harajuku, from Instagram', rot: 3, x: 214, y: 0, tape: 'rgba(192,212,232,.75)' },
-  { local: '一蘭', title: 'Solo-booth ramen', note: 'order at the machine', meta: 'Shibuya, from YouTube', rot: -1.5, x: 120, y: 228, tape: 'rgba(240,196,196,.7)' },
+  { local: 'Montmartre', title: 'Golden hour on the steps', note: 'go an hour before sunset', meta: 'Paris, from TikTok', rot: -4, x: 0, y: 34, tape: 'rgba(200,220,192,.75)' },
+  { local: '경복궁', title: 'Palace in a hanbok', note: 'free entry if you wear one', meta: 'Seoul, from Instagram', rot: 3, x: 214, y: 0, tape: 'rgba(192,212,232,.75)' },
+  { local: 'Coyoacán', title: 'Market tostadas', note: 'the stall by the fountain', meta: 'Mexico City, from YouTube', rot: -1.5, x: 120, y: 228, tape: 'rgba(240,196,196,.7)' },
 ]
 
 /* One day of the demo binder, as the itinerary page draws it */
@@ -132,7 +132,7 @@ export default function LandingPage() {
                 style={{ left: 372, top: 214, width: 132, padding: '18px 13px 13px', background: 'linear-gradient(180deg, #fdf3b9, #f7e88e)', transform: 'rotate(5deg)', boxShadow: '0 2px 3px rgba(44,24,16,.14), 0 14px 30px -6px rgba(44,24,16,.3)' }}
               >
                 <span className="washi" style={{ top: -9, left: 34, width: 60, height: 18, background: 'rgba(232,168,184,.65)', transform: 'rotate(-2deg)' }} />
-                <p className="font-hand m-0" style={{ fontSize: 17, lineHeight: 1.25, color: '#4a3520' }}>get a Suica card at the airport!</p>
+                <p className="font-hand m-0" style={{ fontSize: 17, lineHeight: 1.25, color: '#4a3520' }}>sunrise at Mount Batur!</p>
               </div>
               <div className="landing-stamp absolute" style={{ left: 372, top: 70 }}>
                 <PostmarkMark size={150} ringText />

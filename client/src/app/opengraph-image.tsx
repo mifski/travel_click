@@ -1,97 +1,120 @@
 import { ImageResponse } from 'next/og'
 
-export const alt = 'TravelClick: from saved videos to a real trip plan'
+export const alt = 'TravelClick: your saved travel videos, made into a trip you can take'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
-const PRINTS = [
-  { title: 'Sensō-ji at sunrise 🌅', loc: 'Asakusa · go before 9am', tag: 'TIKTOK', color: '#c94040', rotate: '-4deg', tape: 'rgba(200,220,192,.85)' },
-  { title: '200 tiny bars 🏮', loc: 'Shinjuku · cash only', tag: 'YT', color: '#ef4444', rotate: '2deg', tape: 'rgba(240,196,196,.8)' },
-  { title: 'forest in the city 🌿', loc: 'Harajuku · weekend weddings', tag: 'IG', color: '#d946ef', rotate: '4deg', tape: 'rgba(192,212,232,.85)' },
-]
+const INK = '#2c1810'
+const CORAL = '#c94040'
 
-export default function Image() {
+const HEADLINE = 'Your saved travel videos, made into a trip you can take.'
+const NOTE = 'paste a link, pin it, go'
+
+const PRINTS = [
+  { local: 'Montmartre', title: 'Golden hour on the steps', meta: 'Paris, from TikTok', rot: -5, x: 0, y: 64, tape: 'rgba(200,220,192,.85)' },
+  { local: '경복궁', title: 'Palace in a hanbok', meta: 'Seoul, from Instagram', rot: 4, x: 220, y: 20, tape: 'rgba(192,212,232,.85)' },
+  { local: 'Coyoacán', title: 'Market tostadas', meta: 'Mexico City, from YouTube', rot: -2, x: 90, y: 268, tape: 'rgba(240,196,196,.8)' },
+]
+const STICKY = 'sunrise at Mount Batur!'
+
+/** One Google font, trimmed to the characters drawn. Null if it can't load, so the image still renders */
+async function googleFont(family: string, weight: number, text: string): Promise<ArrayBuffer | null> {
+  try {
+    const css = await fetch(
+      `https://fonts.googleapis.com/css2?family=${family.replace(/ /g, '+')}:wght@${weight}&text=${encodeURIComponent(text)}`,
+      { signal: AbortSignal.timeout(8000) },
+    ).then((r) => r.text())
+    const url = css.match(/src: url\((.+?)\) format\('(?:opentype|truetype)'\)/)?.[1]
+    if (!url) return null
+    return await fetch(url, { signal: AbortSignal.timeout(8000) }).then((r) => r.arrayBuffer())
+  } catch {
+    return null
+  }
+}
+
+/** The postmark logo: coral ring around the smiling paper plane */
+function Postmark({ size: s }: { size: number }) {
+  return (
+    <svg width={s} height={s} viewBox="0 0 220 220">
+      <circle cx="110" cy="110" r="100" fill="none" stroke={CORAL} strokeWidth="12" />
+      <circle cx="110" cy="110" r="78" fill="none" stroke={CORAL} strokeWidth="3" />
+      <g transform="translate(36 54) scale(0.76)">
+        <polygon points="186,22 20,70 92,92" fill="#fffef9" stroke={INK} strokeWidth="5" strokeLinejoin="round" />
+        <polygon points="186,22 92,92 76,134" fill="#7e9ab5" stroke={INK} strokeWidth="5" strokeLinejoin="round" />
+        <circle cx="88" cy="64" r="7" fill={INK} />
+        <circle cx="112" cy="57" r="7" fill={INK} />
+      </g>
+    </svg>
+  )
+}
+
+export default async function Image() {
+  const latin = `TravelClick.${HEADLINE}${PRINTS.map((p) => p.local + p.title).join('')}`
+  const [display, hand, sans, korean] = await Promise.all([
+    googleFont('Playfair Display', 800, latin),
+    googleFont('Caveat', 600, NOTE + STICKY),
+    googleFont('Geist', 600, PRINTS.map((p) => p.meta).join('')),
+    googleFont('Noto Serif KR', 800, PRINTS.map((p) => p.local).join('')),
+  ])
+  const fonts = [
+    display && { name: 'Playfair', data: display, weight: 800 as const },
+    hand && { name: 'Caveat', data: hand, weight: 600 as const },
+    sans && { name: 'Geist', data: sans, weight: 600 as const },
+    korean && { name: 'NotoKR', data: korean, weight: 800 as const },
+  ].filter((f): f is NonNullable<typeof f> => !!f)
+
   return new ImageResponse(
     (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#e9dfcd',
-          padding: 60,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 20 }}>
-          <div style={{ display: 'flex', fontSize: 58, fontWeight: 800, color: '#2c1810' }}>TravelClick</div>
-          <div style={{ display: 'flex', fontSize: 58, fontWeight: 800, color: '#c94040' }}>.</div>
+      <div style={{ width: '100%', height: '100%', display: 'flex', background: '#e9dfcd', padding: '64px 70px', color: INK }}>
+        {/* Left: logo, headline, handwritten note */}
+        <div style={{ display: 'flex', flexDirection: 'column', width: 560 }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <Postmark size={64} />
+            <div style={{ display: 'flex', marginLeft: 16, fontFamily: 'Playfair', fontWeight: 800, fontSize: 40, letterSpacing: -1 }}>
+              TravelClick<span style={{ color: CORAL }}>.</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', marginTop: 54, fontFamily: 'Playfair', fontWeight: 800, fontSize: 62, lineHeight: 1.04, letterSpacing: -1.5 }}>
+            {HEADLINE}
+          </div>
+          <div style={{ display: 'flex', marginTop: 26, fontFamily: 'Caveat', fontSize: 38, color: '#6b4a32', transform: 'rotate(-1.5deg)' }}>
+            {NOTE}
+          </div>
         </div>
 
-        <div
-          style={{
-            display: 'flex',
-            fontSize: 32,
-            color: 'rgba(44,24,16,.6)',
-            marginBottom: 52,
-            textAlign: 'center',
-          }}
-        >
-          From saved videos to boarding pass. AI trip planning in a travel scrapbook
-        </div>
-
-        <div style={{ display: 'flex', gap: 36 }}>
-          {PRINTS.map((card) => (
+        {/* Right: paper prints from three countries, a sticky note */}
+        <div style={{ display: 'flex', position: 'relative', flex: 1, marginLeft: 30 }}>
+          {PRINTS.map((p) => (
             <div
-              key={card.title}
+              key={p.title}
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                position: 'relative',
-                width: 290,
-                background: '#fffef9',
-                padding: '26px 22px 24px',
-                boxShadow: '0 3px 5px rgba(44,24,16,0.14), 0 24px 48px rgba(44,24,16,0.3)',
-                transform: `rotate(${card.rotate})`,
+                position: 'absolute', left: p.x, top: p.y, width: 250, display: 'flex', flexDirection: 'column',
+                background: '#fffef9', padding: '22px 22px 18px', transform: `rotate(${p.rot}deg)`,
+                boxShadow: '0 3px 4px rgba(44,24,16,.14), 0 22px 40px -10px rgba(44,24,16,.38)',
               }}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  position: 'absolute',
-                  top: -12,
-                  left: 90,
-                  width: 96,
-                  height: 26,
-                  background: card.tape,
-                  transform: 'rotate(-4deg)',
-                  boxShadow: '0 1px 3px rgba(0,0,0,.12)',
-                }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <div style={{ display: 'flex', fontSize: 25, fontWeight: 700, color: '#2c1810' }}>{card.title}</div>
-              </div>
-              <div style={{ display: 'flex', fontSize: 18, color: 'rgba(44,24,16,.5)', marginTop: 10 }}>{card.loc}</div>
-              <div
-                style={{
-                  display: 'flex',
-                  alignSelf: 'flex-start',
-                  marginTop: 14,
-                  fontSize: 15,
-                  fontWeight: 800,
-                  letterSpacing: 1.2,
-                  color: card.color,
-                }}
-              >
-                {card.tag}
-              </div>
+              <div style={{ position: 'absolute', top: -12, left: 84, width: 82, height: 24, background: p.tape, transform: 'rotate(-3deg)', display: 'flex' }} />
+              {(/[a-z]/i.test(p.local) || korean) && (
+                <div style={{ display: 'flex', fontFamily: /[a-z]/i.test(p.local) ? 'Playfair' : 'NotoKR', fontWeight: 800, fontSize: 34, color: 'rgba(201,64,64,.88)', lineHeight: 1 }}>
+                  {p.local}
+                </div>
+              )}
+              <div style={{ display: 'flex', marginTop: 10, fontFamily: 'Playfair', fontWeight: 800, fontSize: 22, lineHeight: 1.15 }}>{p.title}</div>
+              <div style={{ display: 'flex', marginTop: 8, fontFamily: 'Geist', fontWeight: 600, fontSize: 14, color: '#a86030' }}>{p.meta}</div>
             </div>
           ))}
+          <div
+            style={{
+              position: 'absolute', left: 316, top: 318, width: 146, display: 'flex', padding: '22px 16px 16px',
+              background: '#f9ec9e', transform: 'rotate(6deg)', fontFamily: 'Caveat', fontSize: 26, lineHeight: 1.15, color: '#4a3520',
+              boxShadow: '0 3px 4px rgba(44,24,16,.14), 0 18px 34px -8px rgba(44,24,16,.32)',
+            }}
+          >
+            {STICKY}
+          </div>
         </div>
       </div>
     ),
-    { ...size }
+    { ...size, fonts },
   )
 }

@@ -20,16 +20,15 @@ export const metadata: Metadata = {
   description:
     'Paste TikToks, YouTube videos, and articles. AI extracts the places, pins them to a travel scrapbook, and builds your day-by-day itinerary, packing list, and destination brief.',
   openGraph: {
-    title: 'TravelClick: From saved videos to boarding pass',
-    description:
-      'AI trip planning on a beautiful travel scrapbook: pin places from social videos, then get an itinerary, packing list, and destination brief.',
+    title: 'TravelClick',
+    description: 'Your saved travel videos, made into a trip you can take. Pin the places, then plan the days.',
     siteName: 'TravelClick',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'TravelClick: From saved videos to boarding pass',
-    description: 'AI trip planning on a beautiful travel scrapbook.',
+    title: 'TravelClick',
+    description: 'Your saved travel videos, made into a trip you can take.',
   },
 }
 
