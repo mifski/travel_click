@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useTripStore } from '@/lib/store'
 import { toast } from '@/components/UI/Toaster'
 import { PlaceSearch } from './PlaceSearch'
+import { splitRepeats, pinnedNames } from '@/lib/place-match'
 
 const EXTRACT_STEPS = [
   'Fetching the video…',
@@ -74,7 +75,10 @@ function PinDialog({ tripId, onClose }: { tripId: string; onClose: () => void })
       const res = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim(), manualCaption: caption || undefined, tripId, destination: trip?.destination, country: trip?.country }),
+        body: JSON.stringify({
+          url: url.trim(), manualCaption: caption || undefined, tripId, destination: trip?.destination, country: trip?.country,
+          pinned: pinnedNames(useTripStore.getState().cards[tripId] ?? []),
+        }),
       })
       const data = await res.json()
       clearInterval(cycle)
@@ -85,21 +89,33 @@ function PinDialog({ tripId, onClose }: { tripId: string; onClose: () => void })
         return
       }
 
-      const cards = data.cards ?? []
-      if (!cards.length) {
+      const found = data.cards ?? []
+      if (!found.length) {
         setExtracting(false)
         setError('No places found. Add a caption describing the locations.')
         return
       }
 
+      // Skip places the board already has, and repeats within this one video
+      const { fresh, repeats } = splitRepeats<typeof found[number]>(found, useTripStore.getState().cards[tripId] ?? [])
+      const skipped = [...new Set(repeats.map((c: { location?: { nameEnglish?: string }; title: string }) => c.location?.nameEnglish || c.title))]
+      const skippedLine = skipped.length ? `${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? ` and ${skipped.length - 3} more` : ''}` : ''
+      if (!fresh.length) {
+        setExtracting(false)
+        setError(`Already on your board: ${skippedLine}. Nothing new in this one.`)
+        return
+      }
+
       // Land the last two beats, then pin for real
-      setStatusLine(`Found ${cards.length === 1 ? `one: ${cards[0].title}` : `${cards.length} places`}`)
+      setStatusLine(`Found ${fresh.length === 1 ? `one new: ${fresh[0].title}` : `${fresh.length} new places`}`)
       later(() => setStatusLine('Pinning to your board…'), 800)
       later(() => {
-        for (const card of cards) addCard(tripId, card)
+        for (const card of fresh) addCard(tripId, card)
         setExtracting(false)
         onClose()
-        toast.success('Pinned to your board')
+        toast.success(skippedLine
+          ? `Pinned ${fresh.length} new. Already on your board: ${skippedLine}`
+          : `Pinned ${fresh.length === 1 ? fresh[0].title : `${fresh.length} places`}`)
       }, 1400)
     } catch {
       clearInterval(cycle)

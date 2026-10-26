@@ -5,11 +5,13 @@ import { Search, Check, MapPin } from 'lucide-react'
 import { useTripStore } from '@/lib/store'
 import { toast } from '@/components/UI/Toaster'
 import type { PlaceCandidate } from '@/lib/place-search'
+import { samePlace } from '@/lib/place-match'
 
 /** Type a place ("USJ", "Ichiran Shibuya"), see matches with photos, pin with one tap */
 export function PlaceSearch({ tripId }: { tripId: string }) {
   const trip = useTripStore((s) => s.trips.find((t) => t.id === tripId))
   const addCard = useTripStore((s) => s.addCard)
+  const board = useTripStore((s) => s.cards[tripId]) ?? []
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<PlaceCandidate[] | null>(null)
   const [pinned, setPinned] = useState<Set<string>>(new Set())
@@ -82,7 +84,7 @@ export function PlaceSearch({ tripId }: { tripId: string }) {
             <p style={{ fontSize: 12.5, color: '#7a5a40' }}>No match. Try the full name, or add the city.</p>
           )}
           {results.map((p) => {
-            const done = pinned.has(p.title)
+            const done = pinned.has(p.title) || board.some((c) => samePlace(p, c))
             return (
               <div key={p.title} className="flex gap-3 items-start rounded-xl border border-amber-200 bg-white p-2.5">
                 {p.imageUrl ? (
@@ -104,11 +106,11 @@ export function PlaceSearch({ tripId }: { tripId: string }) {
                   type="button"
                   onClick={() => pin(p)}
                   disabled={done}
-                  aria-label={done ? `${p.title} pinned` : `Pin ${p.title}`}
+                  aria-label={done ? `${p.title} is on your board` : `Pin ${p.title}`}
                   className={done ? 'shrink-0 rounded-full flex items-center gap-1 font-semibold' : 'pill-coral pill-lift shrink-0 rounded-full font-semibold'}
                   style={{ padding: '7px 14px', fontSize: 12, ...(done ? { color: '#3a6030', background: '#c8dcc0' } : {}) }}
                 >
-                  {done ? <><Check size={12} aria-hidden="true" /> Pinned</> : 'Pin'}
+                  {done ? <><Check size={12} aria-hidden="true" /> On your board</> : 'Pin'}
                 </button>
               </div>
             )

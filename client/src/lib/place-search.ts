@@ -10,13 +10,17 @@ export type PlaceCandidate = Omit<TravelCard, 'id' | 'tripId' | 'pinPosition' | 
 /** Resolve free text ("USJ", a page title) into up to 4 real places near the trip, with photos */
 export async function searchPlaces(
   query: string,
-  trip: { destination?: string; country?: string },
+  trip: { destination?: string; country?: string; pinned?: string[] },
   sourceUrl?: string,
 ): Promise<PlaceCandidate[]> {
   const near = [trip.destination, trip.country].filter(Boolean).map((s) => clamp(s, 80)).join(', ')
+  const pinned = (trip.pinned ?? []).slice(0, 80).map((s) => clamp(s, 80)).filter(Boolean)
   const prompt = `A traveller${near ? ` planning a trip to ${near}` : ''} wants to pin this place: "${clamp(query, 600)}".
 
-Identify the real place(s) they most likely mean. Expand nicknames and abbreviations (e.g. "USJ" = Universal Studios Japan, "MBS" = Marina Bay Sands). Prefer places in or near the trip destination, but if the query clearly names somewhere else, use that. Return 1 result when the match is obvious, up to 4 when it is ambiguous. Never invent places.
+Identify the real place(s) they most likely mean. Expand nicknames and abbreviations (e.g. "USJ" = Universal Studios Japan, "MBS" = Marina Bay Sands). Prefer places in or near the trip destination, but if the query clearly names somewhere else, use that. Return 1 result when the match is obvious, up to 4 when it is ambiguous. Never invent places.${pinned.length ? `
+
+Already on their board (never return these again): ${pinned.join('; ')}.
+If the text is about an area that's already pinned (e.g. "Uji" is pinned and the video tours Uji's matcha shops), return the specific spots it mentions inside that area instead of the area itself. If it adds nothing new, return no places.` : ''}
 
 Return ONLY valid JSON:
 {"places":[{"nameEnglish":"Universal Studios Japan","nameLocal":"ユニバーサル・スタジオ・ジャパン","city":"Osaka","country":"Japan","description":"One sentence on what it is and why people go","tip":"One short practical tip","tags":["theme park","attraction"]}]}

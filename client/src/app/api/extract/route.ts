@@ -50,7 +50,7 @@ async function extractFromCaption(url: string, manualCaption: string | undefined
     return NextResponse.json({ error: 'Couldn’t read this post’s caption. Paste it in “add a caption” and try again.' }, { status: 422 })
   }
   try {
-    const cards = await searchPlaces(text, { destination: clamp(body.destination, 80), country: clamp(body.country, 80) }, url)
+    const cards = await searchPlaces(text, { destination: clamp(body.destination, 80), country: clamp(body.country, 80), pinned: Array.isArray(body.pinned) ? body.pinned : [] }, url)
     if (!cards.length) return NextResponse.json({ error: 'No places in this post’s caption. Add a caption naming the spots.' }, { status: 422 })
     return NextResponse.json({ source, cards: cards.map((c) => ({ ...c, source })) })
   } catch {
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
     const text = manualCaption ?? await readArticle(url)
     if (!text) return NextResponse.json({ error: 'Couldn’t read that page. Add a caption, or use Search a place.' }, { status: 422 })
     try {
-      const cards = await searchPlaces(text, { destination: clamp(body.destination, 80), country: clamp(body.country, 80) }, url)
+      const cards = await searchPlaces(text, { destination: clamp(body.destination, 80), country: clamp(body.country, 80), pinned: Array.isArray(body.pinned) ? body.pinned : [] }, url)
       return NextResponse.json({ source, cards })
     } catch {
       return NextResponse.json({ error: 'Couldn’t pull places from that page. Try Search a place.' }, { status: 500 })
