@@ -4,6 +4,7 @@ import { AuthProvider } from '@/lib/auth-context'
 import { Toaster } from '@/components/UI/Toaster'
 import { MotionProvider } from '@/components/UI/MotionProvider'
 import { SplashScreen } from '@/components/UI/SplashScreen'
+import { CloudSync } from '@/components/UI/CloudSync'
 import './globals.css'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SplashScreen />
         <MotionProvider>
           <AuthProvider>
+            <CloudSync />
             {children}
           </AuthProvider>
         </MotionProvider>

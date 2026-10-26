@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { TravelCard } from './types'
+import type { TravelCard, TripContext, AgeRange, TripObjective, PriceRange } from './types'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
@@ -70,6 +70,23 @@ export interface DbCard {
   saved_at: string
 }
 
+/** Map a Supabase trip row into the local store shape */
+export function dbTripToTripContext(t: DbTrip): TripContext {
+  const today = new Date().toISOString().split('T')[0]
+  return {
+    id: t.id,
+    destination: t.destination,
+    country: t.country,
+    startDate: t.start_date ?? today,
+    endDate: t.end_date ?? today,
+    paxCount: t.pax_count,
+    ageRanges: (t.age_ranges ?? []) as AgeRange[],
+    objectives: (t.objectives ?? []) as TripObjective[],
+    priceRange: (t.price_range ?? 'mid') as PriceRange,
+    createdAt: t.created_at,
+  }
+}
+
 /** Map a Supabase card row back into the local store shape (inverse of syncCardSave). */
 export function dbCardToTravelCard(row: DbCard): TravelCard {
   return {
@@ -131,4 +148,20 @@ export async function getTripCards(tripId: string) {
 
 export async function deleteCard(cardId: string) {
   return supabase.from('cards').delete().eq('id', cardId)
+}
+
+export interface DbTripData {
+  trip_id: string
+  user_id: string
+  kind: string
+  data: unknown
+  updated_at: string
+}
+
+export async function getTripData(tripIds: string[]) {
+  return supabase.from('trip_data').select('*').in('trip_id', tripIds)
+}
+
+export async function saveTripData(row: DbTripData) {
+  return supabase.from('trip_data').upsert(row, { onConflict: 'trip_id,kind' })
 }

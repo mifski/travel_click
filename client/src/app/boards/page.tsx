@@ -10,12 +10,12 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useTripStore } from '@/lib/store'
-import { getUserTrips, getTripCards, deleteTrip as dbDeleteTrip, saveTrip, type DbTrip } from '@/lib/supabase'
+import { getUserTrips, getTripCards, deleteTrip as dbDeleteTrip, saveTrip, dbTripToTripContext, type DbTrip } from '@/lib/supabase'
 import { AgeRangeSelector } from '@/components/TripSetup/AgeRangeSelector'
 import { ObjectiveSelector } from '@/components/TripSetup/ObjectiveSelector'
 import { BudgetSelector } from '@/components/TripSetup/BudgetSelector'
 import { toast } from '@/components/UI/Toaster'
-import type { AgeRange, TripObjective, PriceRange, TripContext } from '@/lib/types'
+import type { AgeRange, TripObjective, PriceRange } from '@/lib/types'
 import { OBJECTIVE_LABELS, PRICE_RANGE_LABELS } from '@/lib/types'
 import { formatDate, getDayCount, getTripStatus, cn } from '@/lib/utils'
 import { Logo } from '@/components/UI/Logo'
@@ -53,18 +53,7 @@ export default function BoardsPage() {
     setDbTrips(trips)
 
     // Hydrate into local store so boards open on any device
-    hydrateTrips(trips.map((t): TripContext => ({
-      id: t.id,
-      destination: t.destination,
-      country: t.country,
-      startDate: t.start_date ?? new Date().toISOString().split('T')[0],
-      endDate: t.end_date ?? new Date().toISOString().split('T')[0],
-      paxCount: t.pax_count,
-      ageRanges: (t.age_ranges ?? []) as AgeRange[],
-      objectives: (t.objectives ?? []) as TripObjective[],
-      priceRange: (t.price_range ?? 'mid') as PriceRange,
-      createdAt: t.created_at,
-    })))
+    hydrateTrips(trips.map(dbTripToTripContext))
 
     // Card counts from Supabase, merged with local pins
     const counts = await Promise.all(trips.map(t => getTripCards(t.id).then(r => [t.id, r.data?.length ?? 0] as const)))

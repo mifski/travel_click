@@ -22,6 +22,8 @@ interface TripStore {
   realityChecks: Record<string, RealityReport>
   realityMarks: Record<string, RealityMarks>
   passports: Record<string, Record<string, PinPassport>>
+  /** Last change time per "tripId:kind", local or pulled — cloud sync's newest-wins clock */
+  syncStamps: Record<string, string>
   lastComparison: DestinationComparison | null
   activeSetup: Partial<TripContext>
 
@@ -75,10 +77,22 @@ interface TripStore {
   // Pin passport
   savePassport: (tripId: string, passport: PinPassport) => void
 
+  // Cloud sync
+  applyCloud: (tripId: string, kind: SyncKind, data: unknown, stamp: string) => void
+  setSyncStamp: (key: string, stamp: string) => void
+
   // Helpers
   getTrip: (tripId: string) => TripContext | null
   resetSetup: () => void
 }
+
+export const SYNC_KINDS = [
+  'notes', 'budget', 'itinerary', 'packing', 'brief', 'reality', 'marks', 'passports', 'settings', 'positions',
+] as const
+export type SyncKind = typeof SYNC_KINDS[number]
+
+/** Trip fields that only live in the trip_data table (the trips table predates them) */
+export type TripSettings = Pick<TripContext, 'pace' | 'dayStart' | 'discovery' | 'homeBase'>
 
 const DEFAULT_SETUP: Partial<TripContext> = {
   ageRanges: ['adults'],
@@ -148,6 +162,7 @@ export const useTripStore = create<TripStore>()(
       realityChecks: {},
       realityMarks: {},
       passports: {},
+      syncStamps: {},
       lastComparison: null,
       activeSetup: { ...DEFAULT_SETUP },
 
@@ -359,6 +374,36 @@ export const useTripStore = create<TripStore>()(
 
       savePassport: (tripId, passport) =>
         set((s) => ({ passports: { ...s.passports, [tripId]: { ...s.passports[tripId], [passport.cardId]: passport } } })),
+
+      applyCloud: (tripId, kind, data, stamp) =>
+        set((s) => {
+          const stamps = { ...s.syncStamps, [`${tripId}:${kind}`]: stamp }
+          const put = <T,>(rec: Record<string, T>) => ({ ...rec, [tripId]: data as T })
+          switch (kind) {
+            case 'notes': return { syncStamps: stamps, notes: put(s.notes) }
+            case 'budget': return { syncStamps: stamps, budgets: put(s.budgets) }
+            case 'itinerary': return { syncStamps: stamps, itineraries: put(s.itineraries) }
+            case 'packing': return { syncStamps: stamps, packingLists: put(s.packingLists) }
+            case 'brief': return { syncStamps: stamps, briefs: put(s.briefs) }
+            case 'reality': return { syncStamps: stamps, realityChecks: put(s.realityChecks) }
+            case 'marks': return { syncStamps: stamps, realityMarks: put(s.realityMarks) }
+            case 'passports': return { syncStamps: stamps, passports: put(s.passports) }
+            case 'settings':
+              return {
+                syncStamps: stamps,
+                trips: s.trips.map((t) => (t.id === tripId ? { ...t, ...(data as TripSettings) } : t)),
+              }
+            case 'positions': {
+              const pos = data as Record<string, TravelCard['pinPosition']>
+              return {
+                syncStamps: stamps,
+                cards: { ...s.cards, [tripId]: (s.cards[tripId] ?? []).map((c) => (pos[c.id] ? { ...c, pinPosition: pos[c.id] } : c)) },
+              }
+            }
+          }
+        }),
+
+      setSyncStamp: (key, stamp) => set((s) => ({ syncStamps: { ...s.syncStamps, [key]: stamp } })),
 
       getTrip: (tripId) => get().trips.find((t) => t.id === tripId) ?? null,
 

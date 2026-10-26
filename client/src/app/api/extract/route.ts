@@ -23,7 +23,43 @@ async function readArticle(url: string): Promise<string | null> {
   } catch { return null }
 }
 
-const BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:5107'
+/** Post caption via public oEmbed (TikTok, X) or the page's preview tags (Instagram and the rest) */
+async function readSocialCaption(url: string): Promise<string | null> {
+  const host = new URL(url).hostname
+  const oembed = /(^|\.)tiktok\.com$/i.test(host) ? `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`
+    : /(^|\.)(x|twitter)\.com$/i.test(host) ? `https://publish.twitter.com/oembed?omit_script=1&url=${encodeURIComponent(url)}`
+    : null
+  if (oembed) {
+    try {
+      const res = await fetch(oembed, { signal: AbortSignal.timeout(8000) })
+      if (res.ok) {
+        const data = await res.json() as { title?: string; html?: string; author_name?: string }
+        const text = data.title || data.html?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+        if (text) return [text, data.author_name && `by ${data.author_name}`].filter(Boolean).join(' ')
+      }
+    } catch { /* fall through to the page tags */ }
+  }
+  return readArticle(url)
+}
+
+/** No video backend: find places in the post's caption instead of its frames */
+async function extractFromCaption(url: string, manualCaption: string | undefined, body: Record<string, unknown>) {
+  const source = getSourceFromUrl(url)
+  const text = manualCaption ?? await readSocialCaption(url)
+  if (!text) {
+    return NextResponse.json({ error: 'Couldn’t read this post’s caption. Paste it in “add a caption” and try again.' }, { status: 422 })
+  }
+  try {
+    const cards = await searchPlaces(text, { destination: clamp(body.destination, 80), country: clamp(body.country, 80) }, url)
+    if (!cards.length) return NextResponse.json({ error: 'No places in this post’s caption. Add a caption naming the spots.' }, { status: 422 })
+    return NextResponse.json({ source, cards: cards.map((c) => ({ ...c, source })) })
+  } catch {
+    return NextResponse.json({ error: 'Couldn’t pull places from that post. Try Search a place.' }, { status: 500 })
+  }
+}
+
+// Unset in production means no video backend is deployed: social links use their captions
+const BACKEND_URL = process.env.BACKEND_URL ?? (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5107')
 const BACKEND_API_KEY = process.env.BACKEND_API_KEY
 
 async function fetchYouTubeMetadata(url: string) {
@@ -89,6 +125,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (!BACKEND_URL) return extractFromCaption(url, manualCaption, body)
+
   try {
     const backendRes = await fetch(`${BACKEND_URL}/api/extract`, {
       method: 'POST',
@@ -139,10 +177,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ source, cards })
   } catch (err) {
-    const isConnRefused = err instanceof Error && (err.message.includes('ECONNREFUSED') || err.message.includes('fetch'))
-    const msg = isConnRefused
-      ? 'The extraction backend is not running. Start the C# backend (dotnet run) on port 5107, or use a YouTube link instead.'
-      : (err instanceof Error ? err.message : 'Failed to reach extraction service')
-    return NextResponse.json({ error: msg }, { status: 500 })
+    const unreachable = err instanceof Error && (err.message.includes('ECONNREFUSED') || err.message.includes('fetch'))
+    if (unreachable) return extractFromCaption(url, manualCaption, body)
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed to reach extraction service' }, { status: 500 })
   }
 }
