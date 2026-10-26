@@ -38,14 +38,30 @@ function StagedLine({ steps }: { steps: string[] }) {
   )
 }
 
+/* Seconds since the overlay opened, so a long wait reads as progress, not a freeze */
+function Elapsed({ hint }: { hint: string }) {
+  const [secs, setSecs] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setSecs((s) => s + 1), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <p style={{ margin: '12px 0 0', fontSize: 12, color: 'rgba(44,24,16,.6)' }}>
+      {secs < 60 ? `${hint} · ${secs}s` : `Still working, big trips take longer · ${secs}s`}
+    </p>
+  )
+}
+
 interface Props {
   show: boolean
   title?: string
   steps?: string[]
+  /** How long this usually takes, shown under the steps */
+  hint?: string
 }
 
 /** Full-screen staged progress overlay shown while the itinerary API runs. */
-export function GenerationOverlay({ show, title = 'Assembling your binder', steps = BINDER_STEPS }: Props) {
+export function GenerationOverlay({ show, title = 'Assembling your binder', steps = BINDER_STEPS, hint = 'Usually about 30 seconds' }: Props) {
   if (typeof document === 'undefined') return null
 
   return createPortal(
@@ -79,6 +95,7 @@ export function GenerationOverlay({ show, title = 'Assembling your binder', step
               {title}
             </p>
             <StagedLine steps={steps} />
+            <Elapsed hint={hint} />
           </div>
         </motion.div>
       )}

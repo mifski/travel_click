@@ -38,6 +38,71 @@ function enforcePace(day: ItineraryDay): ItineraryDay {
   return out
 }
 
+type Block = ItineraryDay['morning'][number]
+
+/** "9:30 AM" / "21:05" → minutes after midnight, or null if it isn't a clock time */
+function toMinutes(t: string | undefined): number | null {
+  const m = (t ?? '').trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i)
+  if (!m) return null
+  let h = Number(m[1]) % 24
+  const min = Number(m[2] ?? 0)
+  const ap = m[3]?.toLowerCase()
+  if (ap === 'pm' && h < 12) h += 12
+  if (ap === 'am' && h === 12) h = 0
+  return h * 60 + min
+}
+
+function clock(min: number): string {
+  const m = ((min % 1440) + 1440) % 1440
+  const h = Math.floor(m / 60)
+  return `${h % 12 || 12}:${String(m % 60).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
+}
+
+/**
+ * Flights are fixed: nothing before landing + 2h on arrival day, nothing after the airport run on
+ * departure day (at the airport 3h before an international flight, 1h to get there). The model is
+ * told this too; this makes it true even when it isn't followed.
+ */
+function fitAroundFlights(day: ItineraryDay, flights: BookedFlight[]): ItineraryDay {
+  const landing = flights.find((f) => f.leg !== 'return' && f.arriveAt.slice(0, 10) === day.date)
+  const leaving = flights.find((f) => f.leg !== 'outbound' && f.departAt.slice(0, 10) === day.date)
+  if (!landing && !leaving) return day
+
+  const startMin = landing ? (toMinutes(landing.arriveAt.slice(11)) ?? 0) + 120 : 0
+  const endMin = leaving ? (toMinutes(leaving.departAt.slice(11)) ?? 1440) - 240 : 1440
+  const keep = (b: Block) => {
+    const t = toMinutes(b.time)
+    return t === null || (t >= startMin && t < endMin)
+  }
+  const blocks: Block[] = [...(day.morning ?? []), ...(day.afternoon ?? []), ...(day.evening ?? [])].filter(keep)
+
+  if (landing) {
+    const at = toMinutes(landing.arriveAt.slice(11)) ?? 0
+    blocks.unshift({
+      time: clock(at), activity: `Land ${landing.flightNo}`.trim(), place: `${landing.to} airport`,
+      duration: '2 hours', category: 'transport', notes: 'Immigration, bags and the transfer in. Nothing else is planned before this.',
+    })
+  }
+  if (leaving) {
+    const dep = toMinutes(leaving.departAt.slice(11)) ?? 1440
+    blocks.push({
+      time: clock(dep - 240), activity: `Head to the airport for ${leaving.flightNo}`.trim(), place: `${leaving.from} airport`,
+      duration: '1 hour', category: 'transport', notes: `Be at the airport by ${clock(dep - 180)}, 3 hours before the ${clock(dep)} departure.`,
+    })
+  }
+
+  const slot = (b: Block) => {
+    const t = toMinutes(b.time) ?? 12 * 60
+    return t < 12 * 60 ? 'morning' : t < 17 * 60 ? 'afternoon' : 'evening'
+  }
+  return {
+    ...day,
+    morning: blocks.filter((b) => slot(b) === 'morning'),
+    afternoon: blocks.filter((b) => slot(b) === 'afternoon'),
+    evening: blocks.filter((b) => slot(b) === 'evening'),
+  }
+}
+
 export async function POST(req: NextRequest) {
   const limited = rateLimit(req, 'itinerary', 10)
   if (limited) return limited
@@ -59,9 +124,11 @@ export async function POST(req: NextRequest) {
     .map((p: unknown) => clamp(p, 160))
   const instructions = clamp(body.instructions, 600)
   const DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/
-  const flights = (Array.isArray(body.flights) ? body.flights as BookedFlight[] : [])
+  const flightList = (Array.isArray(body.flights) ? body.flights as BookedFlight[] : [])
     .filter((f) => DT.test(String(f?.departAt)) && DT.test(String(f?.arriveAt)))
     .slice(0, 6)
+    .map((f) => ({ ...f, flightNo: clamp(f.flightNo, 12), from: clamp(f.from, 40), to: clamp(f.to, 40) }))
+  const flights = flightList
     .map((f) => `  • ${f.leg === 'return' ? 'Return' : f.leg === 'outbound' ? 'Outbound' : 'Flight'} ${clamp(f.flightNo, 12)} ${clamp(f.from, 40)} → ${clamp(f.to, 40)}: departs ${f.departAt.replace('T', ' ')}, arrives ${f.arriveAt.replace('T', ' ')} (local times)`)
   const pace: TripPace = (['slow', 'balanced', 'full'] as const).find((p) => p === trip.pace) ?? 'balanced'
   const dayStart = /^\d{1,2}:\d{2}$/.test(trip.dayStart ?? '') ? trip.dayStart : '09:00'
@@ -140,6 +207,16 @@ Return ONLY valid JSON:
     }
   }
 
+  function flightNote(date: string): string {
+    const landing = flightList.find((f) => f.leg !== 'return' && f.arriveAt.slice(0, 10) === date)
+    const leaving = flightList.find((f) => f.leg !== 'outbound' && f.departAt.slice(0, 10) === date)
+    const at = (dt: string) => clock(toMinutes(dt.slice(11)) ?? 0)
+    return [
+      landing && `\n- ARRIVAL DAY: ${landing.flightNo} lands at ${at(landing.arriveAt)}. Plan nothing before ${clock((toMinutes(landing.arriveAt.slice(11)) ?? 0) + 120)} (immigration, bags, transfer); keep the rest light`,
+      leaving && `\n- DEPARTURE DAY: ${leaving.flightNo} departs ${at(leaving.departAt)}. Leave for the airport by ${clock((toMinutes(leaving.departAt.slice(11)) ?? 1440) - 240)}; plan nothing after that`,
+    ].filter(Boolean).join('')
+  }
+
   // Step 2: one day, in full detail, following its slot in the plan
   function dayPrompt(d: PlanDay, plan: Plan): string {
     const others = plan.days.filter((x) => x.day !== d.day).map((x) => `Day ${x.day}: ${(x.stops ?? []).join(', ')}`).join('\n')
@@ -147,7 +224,7 @@ Return ONLY valid JSON:
 
 ${tripBrief}
 THIS DAY'S PLAN:
-- Date: ${d.date}
+- Date: ${d.date}${flightNote(d.date)}
 - Theme: ${d.theme}${d.area ? `\n- Area: ${d.area}` : ''}
 - Anchor: ${d.anchor ?? 'pick the one thing that matters most'}
 - Stops, in order: ${(d.stops ?? []).join(', ') || 'choose fitting local spots'}
@@ -171,7 +248,10 @@ Return ONLY valid JSON for this one day:
   }
 
   try {
-    const plan = await ask<Plan>('claude-sonnet-4-6', 4000, planPrompt)
+    const t0 = Date.now()
+    // Haiku for both steps: the plan is short and structured, and speed is what keeps this under a minute
+    const plan = await ask<Plan>('claude-haiku-4-5', 3000, planPrompt)
+    const planMs = Date.now() - t0
     if (!Array.isArray(plan.days) || plan.days.length === 0) {
       throw new Error('Itinerary plan came back empty. Try regenerating.')
     }
@@ -182,15 +262,17 @@ Return ONLY valid JSON for this one day:
     const detailed = await Promise.all(planDays.map(async (d) => {
       let day: ItineraryDay
       try { day = await writeDay(d) } catch { day = await writeDay(d) } // one retry per day
-      return enforcePace({
+      return enforcePace(fitAroundFlights({
         ...day,
         day: d.day,
         date: d.date || day.date,
         theme: d.theme || day.theme,
         anchor: d.anchor || day.anchor,
         backups: d.backups ?? day.backups,
-      })
+      }, flightList))
     }))
+
+    console.log(`Itinerary timing: ${days} days, plan ${planMs}ms, total ${Date.now() - t0}ms`)
 
     const itinerary: GeneratedItinerary = {
       tripId: trip.id,

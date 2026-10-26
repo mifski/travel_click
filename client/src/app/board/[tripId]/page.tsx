@@ -133,7 +133,7 @@ export default function BoardPage() {
       const res = await fetch('/api/itinerary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trip, savedPlaces }),
+        body: JSON.stringify({ trip, savedPlaces, flights: useTripStore.getState().budgets[tripId]?.flights ?? [] }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to generate itinerary')
