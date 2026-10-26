@@ -119,9 +119,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Trips longer than 30 days aren’t supported yet — split it into legs.' }, { status: 400 })
   }
 
-  const savedPlaces: string[] = (Array.isArray(body.savedPlaces) ? body.savedPlaces : [])
-    .slice(0, 60)
-    .map((p: unknown) => clamp(p, 160))
+  const list = (v: unknown): string[] => (Array.isArray(v) ? v : []).slice(0, 60).map((p: unknown) => clamp(p, 160)).filter(Boolean)
+  // Pins come split by priority from the plan form; older clients send one savedPlaces list (all must-go)
+  const mustGo = body.mustGo || body.maybe ? list(body.mustGo) : list(body.savedPlaces)
+  const maybe = list(body.maybe)
+  const savedPlaces = [...mustGo, ...maybe]
   const instructions = clamp(body.instructions, 600)
   const DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/
   const flightList = (Array.isArray(body.flights) ? body.flights as BookedFlight[] : [])
@@ -153,16 +155,12 @@ export async function POST(req: NextRequest) {
   // Is the board sparse relative to the trip length?
   const sparseBoard = !savedPlaces?.length || savedPlaces.length < Math.max(3, Math.ceil(days / 2))
 
-  let placesContext = ''
-  if (savedPlaces?.length) {
-    const list = savedPlaces.map(p => `  • ${p}`).join('\n')
-    placesContext = `SAVED PLACES (must all be included):\n${list}\n`
-    if (sparseBoard) {
-      placesContext += `\nNote: Only ${savedPlaces.length} place(s) are saved for a ${days}-day trip. You MUST proactively add more well-known attractions, local restaurants, hidden gems, and authentic experiences in ${trip.destination} so every day is filled — don't just repeat the saved places.`
-    }
-  } else {
-    placesContext = `No specific places have been saved yet. Design a complete ${days}-day itinerary featuring ${trip.destination}'s top attractions, local dining, and authentic experiences.`
-  }
+  const fillHint = sparseBoard
+    ? `\nThe board is light for a ${days}-day trip: add well-known attractions, local restaurants and authentic experiences in ${trip.destination} so every day is full.`
+    : ''
+  const placesContext = savedPlaces.length
+    ? `${mustGo.length ? `MUST-GO PLACES (every one goes in the plan):\n${mustGo.map((p) => `  • ${p}`).join('\n')}\n` : ''}${maybe.length ? `\nIF THEY FIT (optional; choose only the ones that suit the route, pace and variety, and leave the rest out; never stack similar spots, e.g. no more than one ramen place a day):\n${maybe.map((p) => `  • ${p}`).join('\n')}\n` : ''}${fillHint}`
+    : `No specific places have been saved yet. Design a complete ${days}-day itinerary featuring ${trip.destination}'s top attractions, local dining, and authentic experiences.`
 
   const tripBrief = `TRIP DETAILS:
 - Destination: ${trip.destination}, ${trip.country}
@@ -199,7 +197,7 @@ ${tripBrief}
 ${placesContext}
 
 Rules:
-- Every saved place appears on exactly one day; never repeat a stop across days
+- Every must-go place appears on exactly one day; optional places only where they fit; never repeat a stop across days
 - Group nearby places on the same day; the route should feel geographic
 - Number of stops per day follows the pace; fill gaps with well-chosen local spots per the "added places" mix
 
@@ -308,6 +306,14 @@ Return ONLY valid JSON for this one day:
       days: detailed,
       generalTips: plan.generalTips ?? [],
       totalEstimatedCost: plan.totalEstimatedCost,
+      // Left out = an optional pin whose name shows up in no day of the plan (the model's own list rewords names)
+      unusedPins: maybe
+        .map((m) => m.split(',')[0].trim())
+        .filter((name) => {
+          const n = name.toLowerCase()
+          return n && !planDays.some((d) => [...(d.stops ?? []), d.anchor ?? ''].filter((st) => st.trim().length > 2).some((st) => st.toLowerCase().includes(n) || n.includes(st.toLowerCase())))
+        })
+        .slice(0, 30),
     }
 
     return NextResponse.json({ itinerary })

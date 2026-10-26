@@ -91,6 +91,9 @@ export interface AccommodationSuggestion {
   imageUrl?: string
 }
 
+/** How much a pin matters when planning: always in, in only if it fits, or left out */
+export type PinPriority = 'must' | 'maybe' | 'skip'
+
 /** Somewhere the travellers have booked to sleep; nights run checkIn → checkOut (morning) */
 export interface TripStay {
   id: string
@@ -195,6 +198,8 @@ export interface GeneratedItinerary {
   days: ItineraryDay[]
   generalTips: string[]
   totalEstimatedCost?: string
+  /** "If it fits" pins the plan left out, offered back as swaps */
+  unusedPins?: string[]
 }
 
 export interface StickyNote {

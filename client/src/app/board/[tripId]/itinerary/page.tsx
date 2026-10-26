@@ -11,6 +11,8 @@ import { toast } from '@/components/UI/Toaster'
 import { DEMO_TRIP_ID, seedDemo } from '@/lib/demo-data'
 import type { GeneratedItinerary, RealityReport, TripContext } from '@/lib/types'
 import { BookByList, PaceControl } from '@/components/Itinerary/RealityPanel'
+import { PlanSheet } from '@/components/Itinerary/PlanSheet'
+import { planRequestBody } from '@/lib/plan-request'
 import { EMPTY_MARKS } from '@/lib/reality'
 import { formatDateRange } from '@/lib/utils'
 import { Printer, RotateCw } from 'lucide-react'
@@ -45,6 +47,7 @@ export default function ItineraryPage() {
   const [error, setError] = useState('')
   const [activeDay, setActiveDay] = useState(0)
   const [checking, setChecking] = useState(false)
+  const [planOpen, setPlanOpen] = useState(false)
 
   const isDemo = tripId === DEMO_TRIP_ID
 
@@ -58,7 +61,7 @@ export default function ItineraryPage() {
   useEffect(() => {
     if (!mounted) return
     if (!trip && !isDemo) { router.replace('/boards'); return }
-    if (trip && !itinerary && !loading) generate()
+    if (trip && !itinerary && !loading) setPlanOpen(true)
     else if (trip && itinerary && !report && !checking) void realityCheck(trip, itinerary)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, trip])
@@ -82,27 +85,18 @@ export default function ItineraryPage() {
     }
   }
 
-  async function generate(customInstructions?: string, tripOverride?: TripContext) {
+  async function generate(customInstructions?: string, tripOverride?: TripContext, isRefine = !!customInstructions) {
     const trip = tripOverride ?? useTripStore.getState().trips.find((t) => t.id === tripId)
     if (!trip) return
-    const isRefine = !!customInstructions
     if (isRefine) setRefining(true)
     else setLoading(true)
     setError('')
-
-    const savedPlaces = cards.map((c) =>
-      [c.location.nameEnglish, c.location.city, c.location.country].filter(Boolean).join(', ')
-    )
 
     try {
       const res = await fetch('/api/itinerary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          trip, savedPlaces, instructions: customInstructions,
-          flights: useTripStore.getState().budgets[tripId]?.flights ?? [],
-          stays: useTripStore.getState().stays[tripId]?.booked ?? [],
-        }),
+        body: JSON.stringify({ ...planRequestBody(tripId, customInstructions), trip }),
       })
 
       const data = await res.json()
@@ -172,7 +166,7 @@ export default function ItineraryPage() {
                   <Printer size={13} aria-hidden="true" /> <span className="hidden sm:inline">Print / PDF</span>
                 </button>
                 <button
-                  onClick={() => generate()}
+                  onClick={() => setPlanOpen(true)}
                   disabled={loading || refining}
                   title="Regenerate the whole itinerary"
                   aria-label="Regenerate the whole itinerary"
@@ -292,6 +286,17 @@ export default function ItineraryPage() {
           </>
         )}
       </div>
+
+      <PlanSheet
+        tripId={tripId}
+        open={planOpen}
+        onClose={() => { setPlanOpen(false); if (!itinerary) router.push(`/board/${tripId}`) }}
+        onPlan={({ instructions, ...settings }) => {
+          setPlanOpen(false)
+          updateTrip(trip.id, settings)
+          void generate(instructions || undefined, { ...trip, ...settings }, false)
+        }}
+      />
 
       {/* First generation + refine both run under the staged overlay */}
       <GenerationOverlay show={loading} />

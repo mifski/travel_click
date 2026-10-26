@@ -305,6 +305,28 @@ export function ItineraryBinder({
               </div>
             )}
 
+            {/* "If it fits" pins the plan left out: one tap swaps one into this day */}
+            {(itinerary.unusedPins?.length ?? 0) > 0 && (
+              <div style={{ marginTop: 22, maxWidth: 500 }}>
+                <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '.2em', color: 'rgba(201,168,76,.7)' }}>SAVED BUT NOT PLANNED</span>
+                <p style={{ margin: '4px 0 8px', fontSize: 11.5, color: cream(0.5) }}>Tap one to swap it into day {day.day} in place of its least important stop.</p>
+                <div className="flex flex-wrap" style={{ gap: 6 }}>
+                  {itinerary.unusedPins!.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      disabled={refining}
+                      onClick={() => onRefine(`Swap in "${name}" in place of the least important stop, keeping the route sensible`)}
+                      className="rounded-full transition-colors hover:border-[#c9a84c] hover:text-[#c9a84c] disabled:opacity-40"
+                      style={{ padding: '7px 12px', fontSize: 12, border: `1px solid ${cream(0.25)}`, color: cream(0.75), minHeight: 34 }}
+                    >
+                      + {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Refine bar */}
             <div className="flex" style={{ gap: 10, marginTop: 26, maxWidth: 500 }}>
               <input

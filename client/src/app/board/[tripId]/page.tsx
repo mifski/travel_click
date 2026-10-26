@@ -23,6 +23,8 @@ import type { GeneratedItinerary } from '@/lib/types'
 import { Logo, PostmarkMark } from '@/components/UI/Logo'
 import { useCompact } from '@/lib/use-media'
 import { ShareBoard } from '@/components/Board/ShareBoard'
+import { PlanSheet, type PlanChoices } from '@/components/Itinerary/PlanSheet'
+import { planRequestBody } from '@/lib/plan-request'
 
 type ToolTab = 'stays' | 'brief' | 'packing' | 'budget' | null
 
@@ -58,6 +60,7 @@ export default function BoardPage() {
   const [freshNoteId, setFreshNoteId] = useState<string | null>(null)
   const [pinOpen, setPinOpen] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [planOpen, setPlanOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [demoBanner, setDemoBanner] = useState(true)
 
@@ -120,24 +123,24 @@ export default function BoardPage() {
     toast.info('Sticky added. Drag it anywhere')
   }
 
-  async function goItinerary() {
+  function goItinerary() {
     if (itinerary) { router.push(`/board/${tripId}/itinerary`); return }
     if (cards.length === 0) { toast.info('Pin a few places first'); return }
     if (generating || !trip) return
-    setGenerating(true)
+    setPlanOpen(true)
+  }
 
-    const savedPlaces = cards.map((c) =>
-      [c.location.nameEnglish, c.location.city, c.location.country].filter(Boolean).join(', ')
-    )
+  /** After the plan form: save the choices, then generate */
+  async function planTrip({ instructions, ...settings }: PlanChoices) {
+    if (!trip) return
+    setPlanOpen(false)
+    useTripStore.getState().updateTrip(trip.id, settings)
+    setGenerating(true)
     try {
       const res = await fetch('/api/itinerary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          trip, savedPlaces,
-          flights: useTripStore.getState().budgets[tripId]?.flights ?? [],
-          stays: useTripStore.getState().stays[tripId]?.booked ?? [],
-        }),
+        body: JSON.stringify(planRequestBody(tripId, instructions || undefined)),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to generate itinerary')
@@ -390,6 +393,8 @@ export default function BoardPage() {
 
       {/* ── Pin-a-link modal ── */}
       <LinkExtractor tripId={tripId} open={pinOpen} onClose={() => setPinOpen(false)} />
+
+      <PlanSheet tripId={tripId} open={planOpen} onClose={() => setPlanOpen(false)} onPlan={planTrip} />
 
       {/* ── Binder generation overlay ── */}
       <GenerationOverlay show={generating} />

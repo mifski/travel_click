@@ -35,6 +35,7 @@ function source(s: State, tripId: string, kind: SyncKind): Source {
     case 'marks': return plain(s.realityMarks[tripId])
     case 'passports': return plain(s.passports[tripId])
     case 'stays': return plain(s.stays[tripId])
+    case 'priorities': return plain(s.pinPriorities[tripId])
     case 'settings': {
       const t = s.trips.find((x) => x.id === tripId)
       return {

@@ -5,7 +5,7 @@ import { persist } from 'zustand/middleware'
 import type {
   TripContext, TravelCard, GeneratedItinerary, AgeRange, TripObjective, PriceRange,
   StickyNote, StickyColor, PackingList, TravelBrief, DestinationComparison, TripBudget,
-  RealityReport, RealityMarks, StubStatus, PinPassport, TripStays, TripStay, AccommodationSuggestion,
+  RealityReport, RealityMarks, StubStatus, PinPassport, TripStays, TripStay, AccommodationSuggestion, PinPriority,
 } from './types'
 import { generateId, generatePinPosition, randomInRange } from './utils'
 import { DEMO_TRIP_ID } from './demo-data'
@@ -23,6 +23,7 @@ interface TripStore {
   realityMarks: Record<string, RealityMarks>
   passports: Record<string, Record<string, PinPassport>>
   stays: Record<string, TripStays>
+  pinPriorities: Record<string, Record<string, PinPriority>>
   /** Last change time per "tripId:kind", local or pulled — cloud sync's newest-wins clock */
   syncStamps: Record<string, string>
   lastComparison: DestinationComparison | null
@@ -86,6 +87,9 @@ interface TripStore {
   addStay: (tripId: string, stay: Omit<TripStay, 'id'>) => void
   removeStay: (tripId: string, stayId: string) => void
 
+  // Plan form
+  setPinPriority: (tripId: string, cardId: string, priority: PinPriority) => void
+
   // Cloud sync
   applyCloud: (tripId: string, kind: SyncKind, data: unknown, stamp: string) => void
   setSyncStamp: (key: string, stamp: string) => void
@@ -96,7 +100,7 @@ interface TripStore {
 }
 
 export const SYNC_KINDS = [
-  'notes', 'budget', 'itinerary', 'packing', 'brief', 'reality', 'marks', 'passports', 'settings', 'positions', 'stays',
+  'notes', 'budget', 'itinerary', 'packing', 'brief', 'reality', 'marks', 'passports', 'settings', 'positions', 'stays', 'priorities',
 ] as const
 export type SyncKind = typeof SYNC_KINDS[number]
 
@@ -172,6 +176,7 @@ export const useTripStore = create<TripStore>()(
       realityMarks: {},
       passports: {},
       stays: {},
+      pinPriorities: {},
       syncStamps: {},
       lastComparison: null,
       activeSetup: { ...DEFAULT_SETUP },
@@ -265,6 +270,7 @@ export const useTripStore = create<TripStore>()(
             realityMarks: omit(s.realityMarks),
             passports: omit(s.passports),
             stays: omit(s.stays),
+            pinPriorities: omit(s.pinPriorities),
           }
         }),
 
@@ -414,6 +420,7 @@ export const useTripStore = create<TripStore>()(
             case 'marks': return { syncStamps: stamps, realityMarks: put(s.realityMarks) }
             case 'passports': return { syncStamps: stamps, passports: put(s.passports) }
             case 'stays': return { syncStamps: stamps, stays: put(s.stays) }
+            case 'priorities': return { syncStamps: stamps, pinPriorities: put(s.pinPriorities) }
             case 'settings':
               return {
                 syncStamps: stamps,
@@ -445,6 +452,9 @@ export const useTripStore = create<TripStore>()(
           if (!cur) return {}
           return { stays: { ...s.stays, [tripId]: { ...cur, booked: cur.booked.filter((b) => b.id !== stayId) } } }
         }),
+
+      setPinPriority: (tripId, cardId, priority) =>
+        set((s) => ({ pinPriorities: { ...s.pinPriorities, [tripId]: { ...s.pinPriorities[tripId], [cardId]: priority } } })),
 
       setSyncStamp: (key, stamp) => set((s) => ({ syncStamps: { ...s.syncStamps, [key]: stamp } })),
 
