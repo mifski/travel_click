@@ -130,8 +130,9 @@ export async function saveTrip(trip: DbTrip) {
   return supabase.from('trips').upsert(trip, { onConflict: 'id' })
 }
 
-export async function getUserTrips(userId: string) {
-  return supabase.from('trips').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+/** Trips the user owns or was added to (RLS decides; see supabase-collab.sql) */
+export async function getUserTrips() {
+  return supabase.from('trips').select('*').order('created_at', { ascending: false })
 }
 
 export async function deleteTrip(tripId: string) {
@@ -164,4 +165,29 @@ export async function getTripData(tripIds: string[]) {
 
 export async function saveTripData(row: DbTripData) {
   return supabase.from('trip_data').upsert(row, { onConflict: 'trip_id,kind' })
+}
+
+// ─── Shared boards ────────────────────────────────────────────────────────────
+
+export interface TripPerson {
+  id: string
+  username: string
+  display_name: string
+  avatar_url: string | null
+  role: 'owner' | 'member'
+}
+
+export async function getTripPeople(tripId: string) {
+  const { data, error } = await supabase.rpc('trip_people', { tid: tripId })
+  return { people: (data ?? []) as TripPerson[], error }
+}
+
+export async function addTripMember(tripId: string, username: string) {
+  const { data, error } = await supabase.rpc('add_trip_member', { tid: tripId, member_username: username })
+  return { person: data as TripPerson | null, error }
+}
+
+/** Owner removes someone, or a member leaves (pass their own id) */
+export async function removeTripMember(tripId: string, userId: string) {
+  return supabase.from('trip_members').delete().eq('trip_id', tripId).eq('user_id', userId)
 }

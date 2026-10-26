@@ -21,6 +21,7 @@ import { DEMO_TRIP_ID, seedDemo } from '@/lib/demo-data'
 import { getTripStatus, formatDateRange } from '@/lib/utils'
 import type { GeneratedItinerary } from '@/lib/types'
 import { Logo } from '@/components/UI/Logo'
+import { ShareBoard } from '@/components/Board/ShareBoard'
 
 type ToolTab = 'stays' | 'brief' | 'packing' | 'budget' | null
 
@@ -207,6 +208,7 @@ export default function BoardPage() {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            {!isDemo && <ShareBoard tripId={tripId} destination={trip.destination} />}
             <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(255,254,249,.7)', boxShadow: '0 2px 8px rgba(44,24,16,.12)' }}>
               <span className="px-4 py-[7px] rounded-full font-semibold" style={{ background: '#2c1810', color: '#f2ead8', fontSize: 11.5 }}>
                 Moodboard

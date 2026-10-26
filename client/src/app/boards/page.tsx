@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useTripStore } from '@/lib/store'
-import { getUserTrips, getTripCards, deleteTrip as dbDeleteTrip, saveTrip, dbTripToTripContext, type DbTrip } from '@/lib/supabase'
+import { getUserTrips, getTripCards, deleteTrip as dbDeleteTrip, saveTrip, dbTripToTripContext, removeTripMember, type DbTrip } from '@/lib/supabase'
 import { AgeRangeSelector } from '@/components/TripSetup/AgeRangeSelector'
 import { ObjectiveSelector } from '@/components/TripSetup/ObjectiveSelector'
 import { BudgetSelector } from '@/components/TripSetup/BudgetSelector'
@@ -48,7 +48,7 @@ export default function BoardsPage() {
   const loadTrips = useCallback(async () => {
     if (!user) return
     setFetching(true)
-    const { data } = await getUserTrips(user.id)
+    const { data } = await getUserTrips()
     const trips = data ?? []
     setDbTrips(trips)
 
@@ -91,12 +91,17 @@ export default function BoardsPage() {
   async function handleDelete() {
     if (!confirmDelete) return
     setDeleting(true)
-    await dbDeleteTrip(confirmDelete.id)
+    // A shared board isn't ours to delete: leaving just drops our membership
+    const leaving = confirmDelete.user_id !== user?.id
+    const { error } = leaving
+      ? await removeTripMember(confirmDelete.id, user!.id)
+      : await dbDeleteTrip(confirmDelete.id)
+    setDeleting(false)
+    if (error) { toast.error(leaving ? 'Couldn’t leave that board. Try again.' : 'Couldn’t delete that board. Try again.'); return }
     removeTripLocal(confirmDelete.id)
     setDbTrips(t => t.filter(x => x.id !== confirmDelete.id))
-    setDeleting(false)
     setConfirmDelete(null)
-    toast.success(`"${confirmDelete.destination}" board deleted`)
+    toast.success(leaving ? `Left "${confirmDelete.destination}"` : `"${confirmDelete.destination}" board deleted`)
   }
 
   if (loading || !user) return (
@@ -194,6 +199,7 @@ export default function BoardsPage() {
               const priceLabel = PRICE_RANGE_LABELS[trip.price_range as PriceRange]?.label ?? trip.price_range
               const pinCount = Math.max(cardCounts[trip.id] ?? 0, localCards[trip.id]?.length ?? 0)
               const status = trip.start_date && trip.end_date ? getTripStatus(trip.start_date, trip.end_date) : null
+              const shared = trip.user_id !== user.id
               return (
                 <motion.div key={trip.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.06 }}
@@ -208,7 +214,14 @@ export default function BoardsPage() {
                           <MapPin size={12} className="text-[#c94040]" />
                           <h3 className="font-bold text-[#2c1810]">{trip.destination}</h3>
                         </div>
-                        <p className="text-[#7a5a40] text-xs">{trip.country}</p>
+                        <p className="text-[#7a5a40] text-xs">
+                          {trip.country}
+                          {shared && (
+                            <span className="ml-2 inline-flex items-center gap-1 font-semibold" style={{ color: '#3a5f7a' }}>
+                              <Users size={10} aria-hidden="true" /> Shared with you
+                            </span>
+                          )}
+                        </p>
                       </div>
                       <div className="flex items-center gap-2">
                         {status && (
@@ -217,7 +230,7 @@ export default function BoardsPage() {
                           </span>
                         )}
                         <button onClick={() => setConfirmDelete(trip)}
-                          aria-label={`Delete ${trip.destination} board`}
+                          aria-label={shared ? `Leave ${trip.destination} board` : `Delete ${trip.destination} board`}
                           className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-100 text-[#7a5a40] hover:text-red-500">
                           <Trash2 size={13} />
                         </button>
@@ -271,10 +284,12 @@ export default function BoardsPage() {
                 <AlertTriangle size={20} className="text-red-500" />
               </div>
               <h3 className="font-bold text-[#2c1810] text-lg mb-1" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>
-                Delete &ldquo;{confirmDelete.destination}&rdquo;?
+                {confirmDelete.user_id === user.id ? 'Delete' : 'Leave'} &ldquo;{confirmDelete.destination}&rdquo;?
               </h3>
               <p className="text-[#6b4a32] text-sm mb-5">
-                This removes the board, all its pins, notes, and itinerary. There&rsquo;s no undo.
+                {confirmDelete.user_id === user.id
+                  ? <>This removes the board, all its pins, notes, and itinerary for everyone on it. There&rsquo;s no undo.</>
+                  : <>You&rsquo;ll lose access to this shared board. The owner can add you back.</>}
               </p>
               <div className="flex gap-3">
                 <button onClick={() => setConfirmDelete(null)}
@@ -284,7 +299,7 @@ export default function BoardsPage() {
                 <button onClick={handleDelete} disabled={deleting}
                   className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                   {deleting && <Loader2 size={13} className="animate-spin" />}
-                  Delete board
+                  {confirmDelete.user_id === user.id ? 'Delete board' : 'Leave board'}
                 </button>
               </div>
             </motion.div>

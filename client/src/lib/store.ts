@@ -48,6 +48,9 @@ interface TripStore {
   // Card actions
   addCard: (tripId: string, card: Omit<TravelCard, 'id' | 'tripId' | 'pinPosition' | 'savedAt'>) => TravelCard
   removeCard: (tripId: string, cardId: string) => void
+  /** A collaborator's change arrived: add/replace or drop a pin without echoing it back */
+  upsertCardLocal: (card: TravelCard) => void
+  dropCardLocal: (tripId: string, cardId: string) => void
   updateCardPosition: (tripId: string, cardId: string, pos: TravelCard['pinPosition']) => void
   getTripCards: (tripId: string) => TravelCard[]
 
@@ -281,6 +284,20 @@ export const useTripStore = create<TripStore>()(
         }))
         void syncCardDelete(tripId, cardId)
       },
+
+      upsertCardLocal: (card) =>
+        set((s) => {
+          const list = s.cards[card.tripId] ?? []
+          const existing = list.find((c) => c.id === card.id)
+          // Keep the local position: positions sync separately and may be newer here
+          const next = existing
+            ? list.map((c) => (c.id === card.id ? { ...card, pinPosition: c.pinPosition } : c))
+            : [...list, card]
+          return { cards: { ...s.cards, [card.tripId]: next } }
+        }),
+
+      dropCardLocal: (tripId, cardId) =>
+        set((s) => ({ cards: { ...s.cards, [tripId]: (s.cards[tripId] ?? []).filter((c) => c.id !== cardId) } })),
 
       updateCardPosition: (tripId, cardId, pos) =>
         set((s) => ({

@@ -2,14 +2,16 @@
 
 import { useTripStore, SYNC_KINDS, type SyncKind, type TripSettings } from './store'
 import { DEMO_TRIP_ID } from './demo-data'
-import type { DbTripData } from './supabase'
+import type { DbTripData, DbCard } from './supabase'
+import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
 /**
  * Syncs everything a trip holds beyond its pins (notes, budget + flights,
  * itinerary, packing, brief, Reality Check, passports, plan settings, pin
  * positions) to the trip_data table, one JSON row per trip and kind.
  * Newest change wins, judged by syncStamps; pulls on sign-in and whenever the
- * tab comes back into view, pushes ~1s after a local change.
+ * tab comes back into view, pushes ~1s after a local change. Shared boards get
+ * collaborators' changes live over Supabase Realtime.
  */
 
 type State = ReturnType<typeof useTripStore.getState>
@@ -55,6 +57,7 @@ const keyOf = (tripId: string, kind: SyncKind) => `${tripId}:${kind}`
 
 let userId: string | null = null
 let unsubscribe: (() => void) | null = null
+let channel: RealtimeChannel | null = null
 let applying = false
 const seen = new Map<string, unknown>()
 const timers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -118,8 +121,60 @@ async function pull() {
   for (const [tripId, kind] of toPush) void push(tripId, kind)
 }
 
+/** Apply a remote change without the store subscription echoing it back as a push */
+function applyQuietly(fn: () => void) {
+  applying = true
+  try { fn() } finally { applying = false }
+  snapshot()
+}
+
+/** Trips (owned and shared), then their pins, then trip data, so settings and positions have something to land on */
+async function loadAll(uid: string) {
+  const sb = await import('./supabase')
+  try {
+    const { data: trips } = await sb.getUserTrips()
+    if (userId !== uid) return
+    if (trips?.length) {
+      applyQuietly(() => useTripStore.getState().hydrateTrips(trips.map(sb.dbTripToTripContext)))
+      const cardSets = await Promise.all(trips.map(async (t) => [t.id, (await sb.getTripCards(t.id)).data ?? []] as const))
+      if (userId !== uid) return
+      applyQuietly(() => {
+        for (const [tripId, rows] of cardSets) {
+          if (rows.length) useTripStore.getState().hydrateCards(tripId, rows.map(sb.dbCardToTravelCard))
+        }
+      })
+    }
+    await pull()
+  } catch { /* offline: local store stays the source of truth */ }
+}
+
 function onVisible() {
-  if (document.visibilityState === 'visible') void pull()
+  if (document.visibilityState === 'visible' && userId) void loadAll(userId)
+}
+
+async function onCardChange(payload: RealtimePostgresChangesPayload<DbCard>) {
+  const { dbCardToTravelCard } = await import('./supabase')
+  applyQuietly(() => {
+    const store = useTripStore.getState()
+    if (payload.eventType === 'DELETE') {
+      const old = payload.old as Partial<DbCard>
+      if (old.trip_id && old.id) store.dropCardLocal(old.trip_id, old.id)
+    } else if (store.trips.some((t) => t.id === payload.new.trip_id)) {
+      store.upsertCardLocal(dbCardToTravelCard(payload.new))
+    }
+  })
+}
+
+function onDataChange(payload: RealtimePostgresChangesPayload<DbTripData>) {
+  if (payload.eventType === 'DELETE') return
+  const row = payload.new
+  const kind = SYNC_KINDS.find((k) => k === row.kind)
+  const store = useTripStore.getState()
+  if (!kind || !store.trips.some((t) => t.id === row.trip_id)) return
+  const local = store.syncStamps[keyOf(row.trip_id, kind)]
+  if (local && row.updated_at <= local) return // our own echo, or older than what we have
+  clearTimeout(timers.get(keyOf(row.trip_id, kind)))
+  applyQuietly(() => useTripStore.getState().applyCloud(row.trip_id, kind, row.data, row.updated_at))
 }
 
 export async function startCloudSync(uid: string) {
@@ -128,20 +183,7 @@ export async function startCloudSync(uid: string) {
   if (!sb.isSupabaseReady) return
   userId = uid
 
-  // Trips and pins first, so settings and pin positions have something to land on
-  try {
-    const { data: trips } = await sb.getUserTrips(uid)
-    if (userId !== uid) return
-    if (trips?.length) {
-      const store = useTripStore.getState()
-      store.hydrateTrips(trips.map(sb.dbTripToTripContext))
-      await Promise.all(trips.map(async (t) => {
-        const { data } = await sb.getTripCards(t.id)
-        if (data?.length) useTripStore.getState().hydrateCards(t.id, data.map(sb.dbCardToTravelCard))
-      }))
-    }
-    await pull()
-  } catch { /* offline: local store stays the source of truth */ }
+  await loadAll(uid)
   if (userId !== uid) return
 
   snapshot()
@@ -158,12 +200,23 @@ export async function startCloudSync(uid: string) {
     }
   })
   document.addEventListener('visibilitychange', onVisible)
+
+  // RLS limits these streams to boards this account owns or was added to
+  channel = sb.supabase
+    .channel(`tc-sync-${uid}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'cards' }, (p) => void onCardChange(p as RealtimePostgresChangesPayload<DbCard>))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_data' }, (p) => onDataChange(p as RealtimePostgresChangesPayload<DbTripData>))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_members' }, () => { if (userId) void loadAll(userId) })
+    .subscribe()
 }
 
 export function stopCloudSync() {
   userId = null
   unsubscribe?.()
   unsubscribe = null
+  const ch = channel
+  channel = null
+  if (ch) void import('./supabase').then(({ supabase }) => supabase.removeChannel(ch))
   for (const t of timers.values()) clearTimeout(t)
   timers.clear()
   seen.clear()
