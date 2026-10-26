@@ -67,17 +67,25 @@ export default function ItineraryPage() {
   }, [mounted, trip])
 
   /** Second pass after every generate/refine — the stamp stays "Checking…" until it lands */
-  async function realityCheck(t: TripContext, it: GeneratedItinerary) {
+  async function realityCheck(t: TripContext, it: GeneratedItinerary, onlyDays?: number[]) {
     setChecking(true)
     try {
       const res = await fetch('/api/reality-check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trip: t, itinerary: it }),
+        body: JSON.stringify({ trip: t, itinerary: it, onlyDays }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Reality Check failed')
-      saveRealityCheck(data.report as RealityReport)
+      const fresh = data.report as RealityReport
+      const prev = useTripStore.getState().realityChecks[tripId]
+      // A one-day re-check replaces just those days (and their tickets) in the existing report
+      saveRealityCheck(onlyDays && prev ? {
+        ...prev,
+        checkedAt: fresh.checkedAt,
+        days: [...prev.days.filter((d) => !onlyDays.includes(d.day)), ...fresh.days].sort((a, b) => a.day - b.day),
+        stubs: [...prev.stubs.filter((st) => !onlyDays.includes(st.day)), ...fresh.stubs],
+      } : fresh)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Reality Check failed')
     } finally {
@@ -111,6 +119,34 @@ export default function ItineraryPage() {
       else setError(msg)
     } finally {
       setLoading(false)
+      setRefining(false)
+    }
+  }
+
+  /** Reality Check fix, refine bar or swap-in: rewrite only this day, then re-check only this day */
+  async function fixDay(dayNumber: number, change: string) {
+    const t = useTripStore.getState().trips.find((x) => x.id === tripId)
+    const it = useTripStore.getState().itineraries[tripId]
+    if (!t || !it || refining) return
+    setRefining(true)
+    try {
+      const res = await fetch('/api/itinerary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...planRequestBody(tripId), trip: t, itinerary: it, fixDay: { day: dayNumber, instructions: change } }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Couldn’t change that day')
+      const updated: GeneratedItinerary = { ...it, days: it.days.map((d) => (d.day === dayNumber ? data.day : d)) }
+      saveItinerary(updated)
+      // Drop the day's old findings now; the stamp reads Checking… until the re-check below lands
+      const prev = useTripStore.getState().realityChecks[tripId]
+      if (prev) saveRealityCheck({ ...prev, days: prev.days.filter((d) => d.day !== dayNumber) })
+      toast.success(`Day ${dayNumber} updated ✦`)
+      void realityCheck(t, updated, [dayNumber])
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Couldn’t change that day')
+    } finally {
       setRefining(false)
     }
   }
@@ -257,7 +293,7 @@ export default function ItineraryPage() {
               cards={cards}
               activeDay={activeDay}
               onDayChange={setActiveDay}
-              onRefine={(instructions) => generate(`For day ${activeDay + 1}: ${instructions}`)}
+              onRefine={(instructions) => fixDay(itinerary.days[activeDay]?.day ?? activeDay + 1, instructions)}
               refining={refining}
               report={report}
               marks={marks}

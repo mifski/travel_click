@@ -104,10 +104,11 @@ function fitAroundFlights(day: ItineraryDay, flights: BookedFlight[]): Itinerary
 }
 
 export async function POST(req: NextRequest) {
-  const limited = rateLimit(req, 'itinerary', 10)
+  const body = await req.json()
+  // One-day fixes are small and frequent, so they get their own, larger allowance
+  const limited = body.fixDay ? rateLimit(req, 'itinerary-fix', 40) : rateLimit(req, 'itinerary', 10)
   if (limited) return limited
 
-  const body = await req.json()
   const { trip }: { trip: TripContext } = body
 
   if (!trip?.destination || !trip.startDate || !trip.endDate) {
@@ -268,7 +269,56 @@ Return ONLY valid JSON for this one day:
  "morning":[{"time":"9:00 AM","activity":"Activity name","place":"Specific place/address","duration":"2 hours","notes":"Optional note","bookingRequired":false,"category":"activity|meal|transport|rest"}],
  "afternoon":[],"evening":[],
  "meals":{"breakfast":"suggestion","lunch":"suggestion","dinner":"suggestion"},
- "travelTips":["tip for this day"]}`
+ "travelTips":["tip for this day"],
+ "anchor":"The one thing that matters today","backups":{"rain":"Indoor alternative","tired":"Low-effort alternative"}}`
+  }
+
+  const hasBackups = (b: ItineraryDay['backups']) => !!(b?.rain?.trim() && b?.tired?.trim())
+
+  // One-day fix (Reality Check "Fix", refine bar, swap-in): rewrite only this day from its current version
+  const fix = body.fixDay as { day?: unknown; instructions?: unknown } | undefined
+  const current: ItineraryDay[] = Array.isArray(body.itinerary?.days) ? body.itinerary.days : []
+  if (fix && current.length) {
+    const target = current.find((d) => d.day === Number(fix.day))
+    const change = clamp(fix.instructions, 400).trim()
+    if (!target || !change) return NextResponse.json({ error: 'Pick a day and a change to make' }, { status: 400 })
+    const stopsOf = (d: ItineraryDay) => [...(d.morning ?? []), ...(d.afternoon ?? []), ...(d.evening ?? [])]
+      .filter((b) => b.category === 'activity' || b.category === 'meal').map((b) => clamp(b.place || b.activity, 60))
+    const others = current.filter((d) => d.day !== target.day).map((d) => `Day ${d.day}: ${stopsOf(d).join(', ')}`).join('\n')
+    const prompt = `You are an expert travel planner. Make one change to day ${target.day} of ${days} of this trip: "${change}".
+
+${tripBrief}
+DAY ${target.day} AS IT IS NOW (JSON):
+${JSON.stringify({ ...target, travelTips: target.travelTips?.slice(0, 3) }).slice(0, 7000)}
+${flightNote(target.date)}${stayNote(target.date)}
+
+OTHER DAYS (don't use these stops):
+${others || 'none'}
+
+Rules:
+- Make the change asked for; keep every other part of the day that doesn't need to move
+- Keep times realistic, with travel time between stops
+${paceRules}
+- Always return an anchor and both backups (rain and tired)
+
+Return ONLY valid JSON for this one day, in the same shape as the day above, including "anchor" and "backups".`
+    try {
+      const day = await ask<ItineraryDay>('claude-haiku-4-5', 3000, prompt)
+      const fixed = enforcePace(fitAroundFlights({
+        ...day,
+        day: target.day,
+        date: target.date,
+        theme: day.theme || target.theme,
+        anchor: day.anchor?.trim() ? day.anchor : target.anchor,
+        backups: hasBackups(day.backups) ? day.backups : target.backups,
+        meals: day.meals ?? target.meals,
+        travelTips: day.travelTips ?? target.travelTips,
+      }, flightList))
+      return NextResponse.json({ day: fixed })
+    } catch (err) {
+      console.error('Day fix error:', err)
+      return NextResponse.json({ error: err instanceof Error ? err.message : 'Couldn’t change that day. Try again.' }, { status: 500 })
+    }
   }
 
   try {
@@ -292,7 +342,7 @@ Return ONLY valid JSON for this one day:
         date: d.date || day.date,
         theme: d.theme || day.theme,
         anchor: d.anchor || day.anchor,
-        backups: d.backups ?? day.backups,
+        backups: hasBackups(d.backups) ? d.backups : day.backups,
       }, flightList))
     }))
 

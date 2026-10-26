@@ -165,7 +165,8 @@ export type StubStatus = 'to-book' | 'booked' | 'pay-on-day'
 export interface RealityReport {
   tripId: string
   checkedAt: string
-  days: { day: number; findings: RealityFinding[]; facts: RealityFact[] }[]
+  /** sig = fingerprint of the day as checked; findings for a day that has since changed are stale */
+  days: { day: number; sig?: string; findings: RealityFinding[]; facts: RealityFact[] }[]
   stubs: BookingStub[]
 }
 

@@ -29,6 +29,14 @@ export function ruleFindings(day: ItineraryDay): RealityFinding[] {
 
 export const findingKey = (day: number, f: RealityFinding) => `${day}:${f.reason}`
 
+/** Short fingerprint of what a day plans, so a check knows whether it still describes the day */
+export function daySig(day: ItineraryDay): string {
+  const text = JSON.stringify([blocksOf(day).map((b) => [b.time, b.activity, b.place]), day.anchor ?? '', day.backups ?? {}])
+  let h = 5381
+  for (let i = 0; i < text.length; i++) h = ((h * 33) ^ text.charCodeAt(i)) | 0
+  return (h >>> 0).toString(36)
+}
+
 export interface DayReality {
   findings: (RealityFinding & { key: string })[]
   facts: (RealityFact & { checkedOn?: string })[]
@@ -38,12 +46,15 @@ export interface DayReality {
 }
 
 export function dayReality(day: ItineraryDay, report: RealityReport | undefined, marks: RealityMarks): DayReality {
-  const ai = report?.days.find((d) => d.day === day.day)
+  const entry = report?.days.find((d) => d.day === day.day)
+  // The day changed since it was checked (a fix landed): its old AI findings no longer apply
+  const stale = !!entry?.sig && entry.sig !== daySig(day)
+  const ai = stale ? undefined : entry
   const findings = [...ruleFindings(day), ...(ai?.findings ?? [])]
     .map((f) => ({ ...f, key: findingKey(day.day, f) }))
     .filter((f) => !marks.dismissed[f.key])
   const facts = (ai?.facts ?? []).map((f) => ({ ...f, checkedOn: marks.facts[f.key] }))
-  const pending = !report
+  const pending = !report || stale
   const checked = !pending && !findings.some((f) => f.severity === 'fix') && facts.every((f) => f.checkedOn)
   return { findings, facts, checked, pending }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import type { TripContext, GeneratedItinerary, RealityReport, RealityFinding, RealityFact, BookingStub } from '@/lib/types'
 import { rateLimit, clamp } from '@/lib/api-guard'
+import { daySig } from '@/lib/reality'
 
 export const maxDuration = 120
 
@@ -18,7 +19,8 @@ export async function POST(req: NextRequest) {
   const limited = rateLimit(req, 'reality-check', 12)
   if (limited) return limited
 
-  const { trip, itinerary }: { trip: TripContext; itinerary: GeneratedItinerary } = await req.json()
+  const body = await req.json()
+  const { trip, itinerary }: { trip: TripContext; itinerary: GeneratedItinerary } = body
   if (!trip?.destination || !Array.isArray(itinerary?.days) || !itinerary.days.length) {
     return NextResponse.json({ error: 'Trip and itinerary required' }, { status: 400 })
   }
@@ -70,7 +72,10 @@ Return ONLY valid JSON:
 
   try {
     // One call per day in parallel — total time ≈ the slowest single day
-    const raw = await Promise.all(days.map((_, i) => checkDay(i)))
+    // onlyDays: re-check just the days a fix changed; the client merges them into the old report
+    const only = Array.isArray(body.onlyDays) ? (body.onlyDays as unknown[]).map(Number) : null
+    const picked = days.map((d, i) => ({ d, i })).filter(({ d }) => !only || only.includes(d.day))
+    const raw = await Promise.all(picked.map(({ i }) => checkDay(i)))
 
     const url = (u: unknown) => (typeof u === 'string' && /^https:\/\//.test(u) ? clamp(u, 300) : undefined)
     const date = (d: unknown) => (typeof d === 'string' && ISO.test(d) ? d : undefined)
@@ -78,10 +83,11 @@ Return ONLY valid JSON:
     const report: RealityReport = {
       tripId: trip.id,
       checkedAt: new Date().toISOString(),
-      days: raw.map((r, i) => {
-        const day = days[i].day
+      days: raw.map((r, k) => {
+        const day = picked[k].d.day
         return {
           day,
+          sig: daySig(picked[k].d),
           // Every finding must carry a fix — drop any that don't
           findings: (r.findings ?? [])
             .filter((f) => f.reason && f.fix)
@@ -92,10 +98,10 @@ Return ONLY valid JSON:
         }
       }),
       // AI dates are never "sourced" — they show as estimated, or a check-again date when missing
-      stubs: raw.flatMap((r, i) => (r.stubs ?? []).filter((s) => s.item).slice(0, 5).map((s): BookingStub => {
+      stubs: raw.flatMap((r, k) => (r.stubs ?? []).filter((s) => s.item).slice(0, 5).map((s): BookingStub => {
         const opensOn = date(s.opensOn), bookBy = date(s.bookBy)
         return {
-          key: slug(String(s.item)), item: clamp(s.item, 120), day: days[i].day,
+          key: slug(String(s.item)), item: clamp(s.item, 120), day: picked[k].d.day,
           opensOn, bookBy, dateBasis: opensOn || bookBy ? 'estimated' : 'unknown', sourceUrl: url(s.sourceUrl),
         }
       })),
