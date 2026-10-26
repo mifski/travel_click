@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const BAD_PATTERNS = /\.(svg|pdf)(\?|$)|Flag_of|Nuvola|Pictogram|Commons-logo|Wikidata|Wikipedia-logo|OOjs|coat_of_arms|emblem|Map_of|Location_map|Red_pog/i
+const BAD_PATTERNS = /\.(svg|pdf)(\?|$)|Flag_of|Nuvola|Pictogram|Commons-logo|Wikidata|Wikipedia-logo|OOjs|coat_of_arms|emblem|Map_of|Location_map|Red_pog|Logo/i
 
 function isGoodImage(url: string, minWidth = 180): boolean {
   if (BAD_PATTERNS.test(url)) return false

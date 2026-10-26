@@ -10,6 +10,7 @@ import { uploadAvatar, upsertProfile } from '@/lib/supabase'
 import { AvatarUpload } from '@/components/Auth/AvatarUpload'
 import { toast } from '@/components/UI/Toaster'
 import { cn } from '@/lib/utils'
+import { Logo } from '@/components/UI/Logo'
 
 type Gender = 'man' | 'woman' | 'nonbinary' | 'other' | 'prefer_not'
 const GENDERS: { value: Gender; label: string }[] = [
@@ -84,7 +85,7 @@ export default function ProfilePage() {
   }
 
   if (loading || !user) return (
-    <div className="scrapbook-bg min-h-screen flex items-center justify-center">
+    <div className="scrapbook-bg min-h-dvh flex items-center justify-center">
       <Loader2 className="animate-spin text-[#c94040]" size={28} />
     </div>
   )
@@ -92,16 +93,16 @@ export default function ProfilePage() {
   const inp = 'w-full bg-amber-50/60 border border-amber-200 rounded-xl px-4 py-3 text-[#2c1810] text-sm placeholder-amber-700/30 focus:outline-none focus:border-[#c94040]/60 focus:bg-white transition-colors'
 
   return (
-    <div className="scrapbook-bg min-h-screen">
+    <div className="scrapbook-bg min-h-dvh">
       <header className="px-6 sm:px-10 py-4 flex items-center gap-4"
         style={{ background: 'rgba(233,223,205,.85)', backdropFilter: 'blur(8px)' }}>
-        <Link href="/boards" aria-label="Back to boards" className="transition-colors hover:text-[#2c1810]" style={{ color: 'rgba(44,24,16,.5)' }}>
+        <Link href="/boards" aria-label="Back to boards" className="transition-colors hover:text-[#2c1810]" style={{ color: 'rgba(44,24,16,.68)' }}>
           <ArrowLeft size={18} />
         </Link>
         <span className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
-          TravelClick<span style={{ color: '#c94040' }}>.</span>
+          <Logo fontSize={19} />
         </span>
-        <span style={{ fontSize: 12, color: 'rgba(44,24,16,.45)' }}>/&nbsp;&nbsp;Profile</span>
+        <span style={{ fontSize: 12, color: 'rgba(44,24,16,.68)' }}>/&nbsp;&nbsp;Profile</span>
       </header>
 
       <div className="max-w-md mx-auto px-5 py-8">
@@ -111,8 +112,8 @@ export default function ProfilePage() {
           <p className="text-[#2c1810] font-bold mt-3 text-lg" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>
             {profile?.display_name}
           </p>
-          <p className="text-amber-800/50 text-sm">@{profile?.username}</p>
-          <p className="text-amber-800/35 text-xs mt-1">{user.email}</p>
+          <p className="text-[#7a5a40] text-sm">@{profile?.username}</p>
+          <p className="text-[#7a5a40] text-xs mt-1">{user.email}</p>
         </div>
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
@@ -120,34 +121,34 @@ export default function ProfilePage() {
           style={{ background: '#fffef9', borderRadius: 16, boxShadow: '0 2px 3px rgba(44,24,16,.12), 0 20px 44px -10px rgba(44,24,16,.25)' }}>
 
           <div>
-            <label className="text-xs text-amber-800/60 mb-1 block font-semibold">Display Name</label>
+            <label className="text-xs text-[#6b4a32] mb-1 block font-semibold">Display Name</label>
             <input value={displayName} onChange={e => setDisplayName(e.target.value)} className={inp} />
           </div>
 
           <div>
-            <label className="text-xs text-amber-800/60 mb-1 block font-semibold">Username</label>
+            <label className="text-xs text-[#6b4a32] mb-1 block font-semibold">Username</label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-700/40 text-sm">@</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#7a5a40] text-sm">@</span>
               <input value={username} onChange={e => setUsername(e.target.value.replace(/[^a-z0-9_.]/g, ''))}
                 className={cn(inp, 'pl-8')} />
             </div>
           </div>
 
           <div>
-            <label className="text-xs text-amber-800/60 mb-1 block font-semibold">Birthday</label>
+            <label className="text-xs text-[#6b4a32] mb-1 block font-semibold">Birthday</label>
             <input type="date" value={birthday} onChange={e => setBirthday(e.target.value)}
               max={new Date().toISOString().split('T')[0]} className={inp} />
           </div>
 
           <div>
-            <label className="text-xs text-amber-800/60 mb-2 block font-semibold">Gender</label>
+            <label className="text-xs text-[#6b4a32] mb-2 block font-semibold">Gender</label>
             <div className="grid grid-cols-2 gap-2">
               {GENDERS.map(g => (
                 <button key={g.value} type="button" onClick={() => setGender(g.value)}
                   className={cn('px-3 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all text-left',
                     gender === g.value
                       ? 'bg-[#c94040] border-[#c94040] text-white shadow-md'
-                      : 'bg-white border-amber-200 text-amber-900/60 hover:border-[#c94040]/40')}>
+                      : 'bg-white border-amber-200 text-[#6b4a32] hover:border-[#c94040]/40')}>
                   {g.label}
                 </button>
               ))}

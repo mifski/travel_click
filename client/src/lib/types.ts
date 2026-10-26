@@ -1,3 +1,8 @@
+import {
+  TreePalm, Mountain, UtensilsCrossed, Landmark, Martini, Leaf, ShoppingBag, Flower2, Heart, Wallet,
+  type LucideIcon,
+} from 'lucide-react'
+
 export type AgeRange = 'infants' | 'kids' | 'teens' | 'adults' | 'seniors'
 export type TripObjective =
   | 'relaxation'
@@ -12,6 +17,17 @@ export type TripObjective =
   | 'budget'
 export type PriceRange = 'budget' | 'mid' | 'luxury'
 export type CardSource = 'youtube' | 'tiktok' | 'instagram' | 'xiaohongshu' | 'article' | 'ai' | 'manual'
+export type TripPace = 'slow' | 'balanced' | 'full'
+/** Classic-to-gems dial: 0 = famous icons only … 4 = hidden gems only */
+export type TripDiscovery = 0 | 1 | 2 | 3 | 4
+
+export const DISCOVERY_LABELS: Record<TripDiscovery, string> = {
+  0: 'Icons only',
+  1: 'Mostly classics',
+  2: 'Half & half',
+  3: 'Mostly gems',
+  4: 'Gems only',
+}
 
 export interface TripContext {
   id: string
@@ -24,6 +40,10 @@ export interface TripContext {
   objectives: TripObjective[]
   priceRange: PriceRange
   createdAt: string
+  pace?: TripPace
+  dayStart?: string // "09:00"
+  discovery?: TripDiscovery
+  homeBase?: string // hotel name or neighbourhood every day starts and ends at
 }
 
 export interface CardLocation {
@@ -71,6 +91,25 @@ export interface AccommodationSuggestion {
   imageUrl?: string
 }
 
+/** How much a pin matters when planning: always in, in only if it fits, or left out */
+export type PinPriority = 'must' | 'maybe' | 'skip'
+
+/** Somewhere the travellers have booked to sleep; nights run checkIn → checkOut (morning) */
+export interface TripStay {
+  id: string
+  name: string
+  area?: string // neighbourhood or nearest station
+  checkIn: string // YYYY-MM-DD
+  checkOut: string
+}
+
+/** Stays panel state per trip: AI picks plus the stays the travellers entered */
+export interface TripStays {
+  suggestions: AccommodationSuggestion[]
+  suggestedAt?: string
+  booked: TripStay[]
+}
+
 export interface ItineraryTimeBlock {
   time: string
   activity: string
@@ -92,6 +131,63 @@ export interface ItineraryDay {
   travelTips: string[]
   weatherNote?: string
   estimatedCost?: string
+  anchor?: string
+  backups?: { rain?: string; tired?: string }
+}
+
+/* ── v2.2 Reality Layer ── */
+
+export interface RealityFinding {
+  severity: 'fix' | 'look'
+  reason: string
+  fix: string
+}
+
+/** A key fact (hours, closure, fare, timetable). AI-sourced, so unverified until the user checks it. */
+export interface RealityFact {
+  key: string
+  text: string
+  sourceUrl?: string
+}
+
+export interface BookingStub {
+  key: string
+  item: string
+  day: number
+  opensOn?: string // YYYY-MM-DD
+  bookBy?: string
+  dateBasis: 'estimated' | 'unknown'
+  sourceUrl?: string
+}
+
+export type StubStatus = 'to-book' | 'booked' | 'pay-on-day'
+
+export interface RealityReport {
+  tripId: string
+  checkedAt: string
+  days: { day: number; findings: RealityFinding[]; facts: RealityFact[] }[]
+  stubs: BookingStub[]
+}
+
+/** User confirmations that outlive a regenerate: stub status, fact checked-on date, dismissed findings */
+export interface RealityMarks {
+  stubs: Record<string, StubStatus>
+  facts: Record<string, string>
+  dismissed: Record<string, true>
+}
+
+/** Pin passport: the practical facts for one saved place. AI-sourced, so unverified. */
+export interface PinPassport {
+  cardId: string
+  stampedAt: string
+  kind: 'classic' | 'in-between' | 'gem'
+  hours: string
+  bestTime: string
+  timeNeeded: string
+  price: string
+  booking: string
+  tip: string
+  sourceUrl?: string
 }
 
 export interface GeneratedItinerary {
@@ -102,6 +198,8 @@ export interface GeneratedItinerary {
   days: ItineraryDay[]
   generalTips: string[]
   totalEstimatedCost?: string
+  /** "If it fits" pins the plan left out, offered back as swaps */
+  unusedPins?: string[]
 }
 
 export interface StickyNote {
@@ -157,6 +255,7 @@ export interface DestinationScore {
   country: string
   iata?: string
   months: MonthOutlook[]
+  // Field names predate the SGD switch; kept so saved comparisons still load. Values are S$ strings.
   dailyCostUSD: string
   hotelNightUSD: string
   flightNote: string
@@ -181,9 +280,21 @@ export interface DestinationComparison {
   verdict: { winner: string; bestMonth: string; reasoning: string; runnerUp?: string }
 }
 
+export interface BookedFlight {
+  id: string
+  leg: 'outbound' | 'return' | 'other'
+  flightNo: string
+  from: string
+  to: string
+  departAt: string // local "YYYY-MM-DDTHH:mm"
+  arriveAt: string
+  price?: number // S$ paid for the whole group
+}
+
 export interface TripBudget {
   total?: number
   flightPerPerson?: number
+  flights?: BookedFlight[]
 }
 
 export interface BriefPhrase {
@@ -207,28 +318,28 @@ export interface TravelBrief {
 }
 
 export const AGE_RANGE_LABELS: Record<AgeRange, string> = {
-  infants: 'Infants (0–2)',
-  kids: 'Kids (3–12)',
-  teens: 'Teens (13–17)',
-  adults: 'Adults (18–59)',
+  infants: 'Infants (0-2)',
+  kids: 'Kids (3-12)',
+  teens: 'Teens (13-17)',
+  adults: 'Adults (18-59)',
   seniors: 'Seniors (60+)',
 }
 
-export const OBJECTIVE_LABELS: Record<TripObjective, { label: string; icon: string }> = {
-  relaxation: { label: 'Relaxation', icon: '🏖️' },
-  adventure: { label: 'Adventure', icon: '🧗' },
-  food: { label: 'Food & Drink', icon: '🍜' },
-  culture: { label: 'Culture & History', icon: '🏛️' },
-  nightlife: { label: 'Nightlife', icon: '🎉' },
-  nature: { label: 'Nature', icon: '🌿' },
-  shopping: { label: 'Shopping', icon: '🛍️' },
-  wellness: { label: 'Wellness', icon: '🧘' },
-  romance: { label: 'Romance', icon: '💕' },
-  budget: { label: 'Budget Travel', icon: '💰' },
+export const OBJECTIVE_LABELS: Record<TripObjective, { label: string; icon: LucideIcon }> = {
+  relaxation: { label: 'Relaxation', icon: TreePalm },
+  adventure: { label: 'Adventure', icon: Mountain },
+  food: { label: 'Food & Drink', icon: UtensilsCrossed },
+  culture: { label: 'Culture & History', icon: Landmark },
+  nightlife: { label: 'Nightlife', icon: Martini },
+  nature: { label: 'Nature', icon: Leaf },
+  shopping: { label: 'Shopping', icon: ShoppingBag },
+  wellness: { label: 'Wellness', icon: Flower2 },
+  romance: { label: 'Romance', icon: Heart },
+  budget: { label: 'Budget Travel', icon: Wallet },
 }
 
 export const PRICE_RANGE_LABELS: Record<PriceRange, { label: string; desc: string }> = {
-  budget: { label: 'Budget', desc: 'Under $80/night' },
-  mid: { label: 'Mid-range', desc: '$80–$250/night' },
-  luxury: { label: 'Luxury', desc: '$250+/night' },
+  budget: { label: 'Budget', desc: 'Under S$110/night' },
+  mid: { label: 'Mid-range', desc: 'S$110-S$340/night' },
+  luxury: { label: 'Luxury', desc: 'S$340+/night' },
 }

@@ -50,6 +50,8 @@ GROUP: ${paxCount} traveller${paxCount > 1 ? 's' : ''}${travelerNote ? `. Travel
 TEMPERATURE PREFERENCE: ${tempDesc[tempPref]}
 TOP PRIORITIES (weight these heavily in fit scores): ${priorities.length ? priorities.join(', ') : 'overall value'}
 
+All prices are in Singapore dollars, written as S$ (e.g. "S$45"). Put S$ amounts in dailyCostUSD and hotelNightUSD despite the field names.
+
 Return ONLY valid JSON (no markdown) in this exact structure:
 {
   "results": [
@@ -60,8 +62,8 @@ Return ONLY valid JSON (no markdown) in this exact structure:
       "months": [
         { "month": "November", "tempLowC": 8, "tempHighC": 15, "rain": "low|medium|high", "crowds": "low|medium|high", "note": "short seasonal note if important" }
       ],
-      "dailyCostUSD": "$XX–XX",
-      "hotelNightUSD": "$XX–XX",
+      "dailyCostUSD": "S$XX–XX per person",
+      "hotelNightUSD": "S$XX–XX",
       "flightNote": "1 sentence: typical fare context for this route/season and whether a quoted fare is reasonable",
       "visaNote": "1 sentence: entry/visa reality for most Western/SEA passports — be specific and honest",
       "vibe": "1 vivid sentence capturing the city's character",

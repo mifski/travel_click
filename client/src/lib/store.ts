@@ -5,9 +5,11 @@ import { persist } from 'zustand/middleware'
 import type {
   TripContext, TravelCard, GeneratedItinerary, AgeRange, TripObjective, PriceRange,
   StickyNote, StickyColor, PackingList, TravelBrief, DestinationComparison, TripBudget,
+  RealityReport, RealityMarks, StubStatus, PinPassport, TripStays, TripStay, AccommodationSuggestion, PinPriority,
 } from './types'
 import { generateId, generatePinPosition, randomInRange } from './utils'
 import { DEMO_TRIP_ID } from './demo-data'
+import { EMPTY_MARKS } from './reality'
 
 interface TripStore {
   trips: TripContext[]
@@ -17,6 +19,13 @@ interface TripStore {
   packingLists: Record<string, PackingList>
   briefs: Record<string, TravelBrief>
   budgets: Record<string, TripBudget>
+  realityChecks: Record<string, RealityReport>
+  realityMarks: Record<string, RealityMarks>
+  passports: Record<string, Record<string, PinPassport>>
+  stays: Record<string, TripStays>
+  pinPriorities: Record<string, Record<string, PinPriority>>
+  /** Last change time per "tripId:kind", local or pulled — cloud sync's newest-wins clock */
+  syncStamps: Record<string, string>
   lastComparison: DestinationComparison | null
   activeSetup: Partial<TripContext>
 
@@ -32,6 +41,7 @@ interface TripStore {
   hydrateCards: (tripId: string, cards: TravelCard[]) => void
   removeTripLocal: (tripId: string) => void
   addTrip: (trip: TripContext) => void
+  updateTrip: (tripId: string, patch: Partial<TripContext>) => void
 
   // Destination comparison + budget
   saveComparison: (cmp: DestinationComparison) => void
@@ -40,6 +50,9 @@ interface TripStore {
   // Card actions
   addCard: (tripId: string, card: Omit<TravelCard, 'id' | 'tripId' | 'pinPosition' | 'savedAt'>) => TravelCard
   removeCard: (tripId: string, cardId: string) => void
+  /** A collaborator's change arrived: add/replace or drop a pin without echoing it back */
+  upsertCardLocal: (card: TravelCard) => void
+  dropCardLocal: (tripId: string, cardId: string) => void
   updateCardPosition: (tripId: string, cardId: string, pos: TravelCard['pinPosition']) => void
   getTripCards: (tripId: string) => TravelCard[]
 
@@ -60,10 +73,39 @@ interface TripStore {
   saveItinerary: (itinerary: GeneratedItinerary) => void
   getItinerary: (tripId: string) => GeneratedItinerary | null
 
+  // Reality layer
+  saveRealityCheck: (report: RealityReport) => void
+  setStubStatus: (tripId: string, key: string, status: StubStatus) => void
+  markFactChecked: (tripId: string, key: string) => void
+  dismissFinding: (tripId: string, key: string) => void
+
+  // Pin passport
+  savePassport: (tripId: string, passport: PinPassport) => void
+
+  // Stays
+  saveStaySuggestions: (tripId: string, suggestions: AccommodationSuggestion[]) => void
+  addStay: (tripId: string, stay: Omit<TripStay, 'id'>) => void
+  removeStay: (tripId: string, stayId: string) => void
+
+  // Plan form
+  setPinPriority: (tripId: string, cardId: string, priority: PinPriority) => void
+
+  // Cloud sync
+  applyCloud: (tripId: string, kind: SyncKind, data: unknown, stamp: string) => void
+  setSyncStamp: (key: string, stamp: string) => void
+
   // Helpers
   getTrip: (tripId: string) => TripContext | null
   resetSetup: () => void
 }
+
+export const SYNC_KINDS = [
+  'notes', 'budget', 'itinerary', 'packing', 'brief', 'reality', 'marks', 'passports', 'settings', 'positions', 'stays', 'priorities',
+] as const
+export type SyncKind = typeof SYNC_KINDS[number]
+
+/** Trip fields that only live in the trip_data table (the trips table predates them) */
+export type TripSettings = Pick<TripContext, 'pace' | 'dayStart' | 'discovery' | 'homeBase'>
 
 const DEFAULT_SETUP: Partial<TripContext> = {
   ageRanges: ['adults'],
@@ -111,6 +153,15 @@ async function syncCardDelete(tripId: string, cardId: string) {
   } catch { /* ignore */ }
 }
 
+function patchMarks<K extends keyof RealityMarks>(
+  s: TripStore, tripId: string, field: K, key: string, value: RealityMarks[K][string]
+): Partial<TripStore> {
+  const marks = s.realityMarks[tripId] ?? EMPTY_MARKS
+  return {
+    realityMarks: { ...s.realityMarks, [tripId]: { ...marks, [field]: { ...marks[field], [key]: value } } },
+  }
+}
+
 export const useTripStore = create<TripStore>()(
   persist(
     (set, get) => ({
@@ -121,6 +172,12 @@ export const useTripStore = create<TripStore>()(
       packingLists: {},
       briefs: {},
       budgets: {},
+      realityChecks: {},
+      realityMarks: {},
+      passports: {},
+      stays: {},
+      pinPriorities: {},
+      syncStamps: {},
       lastComparison: null,
       activeSetup: { ...DEFAULT_SETUP },
 
@@ -171,6 +228,9 @@ export const useTripStore = create<TripStore>()(
       addTrip: (trip) =>
         set((s) => ({ trips: [...s.trips.filter((t) => t.id !== trip.id), trip] })),
 
+      updateTrip: (tripId, patch) =>
+        set((s) => ({ trips: s.trips.map((t) => (t.id === tripId ? { ...t, ...patch } : t)) })),
+
       saveComparison: (cmp) => set({ lastComparison: cmp }),
 
       setBudget: (tripId, budget) =>
@@ -206,6 +266,11 @@ export const useTripStore = create<TripStore>()(
             packingLists: omit(s.packingLists),
             briefs: omit(s.briefs),
             budgets: omit(s.budgets),
+            realityChecks: omit(s.realityChecks),
+            realityMarks: omit(s.realityMarks),
+            passports: omit(s.passports),
+            stays: omit(s.stays),
+            pinPriorities: omit(s.pinPriorities),
           }
         }),
 
@@ -233,6 +298,20 @@ export const useTripStore = create<TripStore>()(
         }))
         void syncCardDelete(tripId, cardId)
       },
+
+      upsertCardLocal: (card) =>
+        set((s) => {
+          const list = s.cards[card.tripId] ?? []
+          const existing = list.find((c) => c.id === card.id)
+          // Keep the local position: positions sync separately and may be newer here
+          const next = existing
+            ? list.map((c) => (c.id === card.id ? { ...card, pinPosition: c.pinPosition } : c))
+            : [...list, card]
+          return { cards: { ...s.cards, [card.tripId]: next } }
+        }),
+
+      dropCardLocal: (tripId, cardId) =>
+        set((s) => ({ cards: { ...s.cards, [tripId]: (s.cards[tripId] ?? []).filter((c) => c.id !== cardId) } })),
 
       updateCardPosition: (tripId, cardId, pos) =>
         set((s) => ({
@@ -315,6 +394,69 @@ export const useTripStore = create<TripStore>()(
         })),
 
       getItinerary: (tripId) => get().itineraries[tripId] ?? null,
+
+      saveRealityCheck: (report) =>
+        set((s) => ({ realityChecks: { ...s.realityChecks, [report.tripId]: report } })),
+
+      setStubStatus: (tripId, key, status) => set((s) => patchMarks(s, tripId, 'stubs', key, status)),
+      markFactChecked: (tripId, key) =>
+        set((s) => patchMarks(s, tripId, 'facts', key, new Date().toISOString().slice(0, 10))),
+      dismissFinding: (tripId, key) => set((s) => patchMarks(s, tripId, 'dismissed', key, true)),
+
+      savePassport: (tripId, passport) =>
+        set((s) => ({ passports: { ...s.passports, [tripId]: { ...s.passports[tripId], [passport.cardId]: passport } } })),
+
+      applyCloud: (tripId, kind, data, stamp) =>
+        set((s) => {
+          const stamps = { ...s.syncStamps, [`${tripId}:${kind}`]: stamp }
+          const put = <T,>(rec: Record<string, T>) => ({ ...rec, [tripId]: data as T })
+          switch (kind) {
+            case 'notes': return { syncStamps: stamps, notes: put(s.notes) }
+            case 'budget': return { syncStamps: stamps, budgets: put(s.budgets) }
+            case 'itinerary': return { syncStamps: stamps, itineraries: put(s.itineraries) }
+            case 'packing': return { syncStamps: stamps, packingLists: put(s.packingLists) }
+            case 'brief': return { syncStamps: stamps, briefs: put(s.briefs) }
+            case 'reality': return { syncStamps: stamps, realityChecks: put(s.realityChecks) }
+            case 'marks': return { syncStamps: stamps, realityMarks: put(s.realityMarks) }
+            case 'passports': return { syncStamps: stamps, passports: put(s.passports) }
+            case 'stays': return { syncStamps: stamps, stays: put(s.stays) }
+            case 'priorities': return { syncStamps: stamps, pinPriorities: put(s.pinPriorities) }
+            case 'settings':
+              return {
+                syncStamps: stamps,
+                trips: s.trips.map((t) => (t.id === tripId ? { ...t, ...(data as TripSettings) } : t)),
+              }
+            case 'positions': {
+              const pos = data as Record<string, TravelCard['pinPosition']>
+              return {
+                syncStamps: stamps,
+                cards: { ...s.cards, [tripId]: (s.cards[tripId] ?? []).map((c) => (pos[c.id] ? { ...c, pinPosition: pos[c.id] } : c)) },
+              }
+            }
+          }
+        }),
+
+      saveStaySuggestions: (tripId, suggestions) =>
+        set((s) => ({ stays: { ...s.stays, [tripId]: { booked: s.stays[tripId]?.booked ?? [], suggestions, suggestedAt: new Date().toISOString() } } })),
+
+      addStay: (tripId, stay) =>
+        set((s) => {
+          const cur = s.stays[tripId] ?? { suggestions: [], booked: [] }
+          const booked = [...cur.booked, { ...stay, id: generateId() }].sort((a, b) => a.checkIn.localeCompare(b.checkIn))
+          return { stays: { ...s.stays, [tripId]: { ...cur, booked } } }
+        }),
+
+      removeStay: (tripId, stayId) =>
+        set((s) => {
+          const cur = s.stays[tripId]
+          if (!cur) return {}
+          return { stays: { ...s.stays, [tripId]: { ...cur, booked: cur.booked.filter((b) => b.id !== stayId) } } }
+        }),
+
+      setPinPriority: (tripId, cardId, priority) =>
+        set((s) => ({ pinPriorities: { ...s.pinPriorities, [tripId]: { ...s.pinPriorities[tripId], [cardId]: priority } } })),
+
+      setSyncStamp: (key, stamp) => set((s) => ({ syncStamps: { ...s.syncStamps, [key]: stamp } })),
 
       getTrip: (tripId) => get().trips.find((t) => t.id === tripId) ?? null,
 

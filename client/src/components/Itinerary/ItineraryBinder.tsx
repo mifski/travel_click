@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { GeneratedItinerary, ItineraryDay, ItineraryTimeBlock, TravelCard } from '@/lib/types'
+import type { GeneratedItinerary, ItineraryDay, ItineraryTimeBlock, TravelCard, RealityReport, RealityMarks } from '@/lib/types'
 import { googleMapsUrl } from '@/lib/utils'
+import { dayReality } from '@/lib/reality'
+import { RealityStamp, PaceRibbon, DayRealityPanel } from './RealityPanel'
 import { Clock, MapPin, Utensils, Navigation, Info, Wallet } from 'lucide-react'
 
 /* ═══════════════ Print view (light, flat document) ═══════════════ */
@@ -69,7 +71,7 @@ export function DayPage({ day, accentColor, destination }: { day: ItineraryDay; 
         <h2 className="font-bold text-xl text-[#1a0f00] leading-tight" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>
           {day.theme}
         </h2>
-        <p className="text-xs text-amber-700/60 font-mono mt-0.5">{day.date}</p>
+        <p className="text-xs text-[#6b4a32] font-mono mt-0.5">{day.date}</p>
         {day.estimatedCost && (
           <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border"
             style={{ color: accentColor, borderColor: `${accentColor}50` }}>
@@ -151,11 +153,19 @@ interface Props {
   onDayChange: (idx: number) => void
   onRefine: (instructions: string) => void
   refining: boolean
+  report?: RealityReport
+  marks: RealityMarks
+  checking: boolean
+  onRecheck: () => void
 }
 
-export function ItineraryBinder({ itinerary, cards, activeDay, onDayChange, onRefine, refining }: Props) {
+export function ItineraryBinder({
+  itinerary, cards, activeDay, onDayChange, onRefine, refining, report, marks, checking, onRecheck,
+}: Props) {
   const [refineText, setRefineText] = useState('')
   const day = itinerary.days[Math.min(activeDay, itinerary.days.length - 1)]
+  const realities = itinerary.days.map((d) => dayReality(d, report, marks))
+  const reality = realities[Math.min(activeDay, itinerary.days.length - 1)]
   const blocks = dayBlocks(day)
   const prints = useMemo(() => pickPrints(day, activeDay, cards), [day, activeDay, cards])
 
@@ -168,7 +178,7 @@ export function ItineraryBinder({ itinerary, cards, activeDay, onDayChange, onRe
   return (
     <>
       {/* ── Day tabs ── */}
-      <div className="flex items-center flex-wrap" style={{ gap: 8, padding: '22px 40px 0' }}>
+      <div className="swipe-row sm:flex-wrap items-center" style={{ gap: 8, padding: '22px var(--gutter) 4px' }}>
         {itinerary.days.map((d, i) => {
           const active = i === activeDay
           const short = d.theme.split(/[:—–]/)[0].trim()
@@ -184,12 +194,19 @@ export function ItineraryBinder({ itinerary, cards, activeDay, onDayChange, onRe
               onMouseEnter={(e) => { if (!active) e.currentTarget.style.borderColor = '#c9a84c' }}
               onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = cream(0.2) }}
             >
+              {!checking && report && (
+                <span
+                  aria-label={realities[i].checked ? 'Checked' : 'Check again'}
+                  className="inline-block rounded-full"
+                  style={{ width: 7, height: 7, marginRight: 7, background: realities[i].checked ? '#8fbf7a' : '#e0705f', verticalAlign: 'middle' }}
+                />
+              )}
               {label}
             </button>
           )
         })}
         {day.estimatedCost && (
-          <span className="ml-auto" style={{ fontSize: 11.5, color: cream(0.45) }}>
+          <span className="ml-auto pl-2 whitespace-nowrap" style={{ fontSize: 11.5, color: cream(0.55) }}>
             Day est. <span style={{ color: '#c9a84c', fontWeight: 700 }}>{day.estimatedCost}</span>
           </span>
         )}
@@ -204,15 +221,36 @@ export function ItineraryBinder({ itinerary, cards, activeDay, onDayChange, onRe
           exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.22 }}
           className="flex flex-wrap"
-          style={{ gap: 36, padding: '26px 40px 0' }}
+          style={{ gap: 36, padding: '26px var(--gutter) 0' }}
         >
           {/* Timeline */}
-          <div className="relative flex-1" style={{ paddingLeft: 26, minWidth: 320 }}>
+          <div className="relative flex-1" style={{ paddingLeft: 26, minWidth: 'min(320px, 100%)' }}>
             <span
               aria-hidden="true"
               className="absolute"
               style={{ left: 5, top: 8, bottom: 8, width: 1, background: 'linear-gradient(180deg, rgba(201,168,76,.6), rgba(201,168,76,.1))' }}
             />
+
+            <div className="flex items-center flex-wrap" style={{ gap: 14, marginBottom: 14, marginLeft: -26 }}>
+              <RealityStamp reality={reality} checking={checking} />
+              {!checking && (
+                <button onClick={onRecheck} disabled={refining} style={{ fontSize: 11, color: cream(0.5) }} className="hover:text-[#c9a84c] disabled:opacity-40">
+                  ↻ Re-check
+                </button>
+              )}
+            </div>
+            <div style={{ marginLeft: -26 }}>
+              <PaceRibbon day={day} />
+              <DayRealityPanel
+                tripId={itinerary.tripId}
+                reality={reality}
+                stubs={report?.stubs.filter((s) => s.day === day.day) ?? []}
+                checkedAt={report?.checkedAt}
+                statuses={marks.stubs}
+                onFix={onRefine}
+                busy={refining || checking}
+              />
+            </div>
 
             {blocks.map((block, i) => (
               <div key={i} className="relative" style={{ marginBottom: 26 }}>
@@ -247,7 +285,7 @@ export function ItineraryBinder({ itinerary, cards, activeDay, onDayChange, onRe
                   >
                     Open in Maps ↗
                   </a>
-                  <span style={{ color: cream(0.45) }}>{block.duration}</span>
+                  <span style={{ color: cream(0.55) }}>{block.duration}</span>
                   {block.bookingRequired && (
                     <span style={{ color: '#c9a84c', fontWeight: 700, letterSpacing: '.08em', fontSize: 9.5 }}>BOOK AHEAD</span>
                   )}
@@ -267,6 +305,28 @@ export function ItineraryBinder({ itinerary, cards, activeDay, onDayChange, onRe
               </div>
             )}
 
+            {/* "If it fits" pins the plan left out: one tap swaps one into this day */}
+            {(itinerary.unusedPins?.length ?? 0) > 0 && (
+              <div style={{ marginTop: 22, maxWidth: 500 }}>
+                <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '.2em', color: 'rgba(201,168,76,.7)' }}>SAVED BUT NOT PLANNED</span>
+                <p style={{ margin: '4px 0 8px', fontSize: 11.5, color: cream(0.5) }}>Tap one to swap it into day {day.day} in place of its least important stop.</p>
+                <div className="flex flex-wrap" style={{ gap: 6 }}>
+                  {itinerary.unusedPins!.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      disabled={refining}
+                      onClick={() => onRefine(`Swap in "${name}" in place of the least important stop, keeping the route sensible`)}
+                      className="rounded-full transition-colors hover:border-[#c9a84c] hover:text-[#c9a84c] disabled:opacity-40"
+                      style={{ padding: '7px 12px', fontSize: 12, border: `1px solid ${cream(0.25)}`, color: cream(0.75), minHeight: 34 }}
+                    >
+                      + {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Refine bar */}
             <div className="flex" style={{ gap: 10, marginTop: 26, maxWidth: 500 }}>
               <input
@@ -274,7 +334,7 @@ export function ItineraryBinder({ itinerary, cards, activeDay, onDayChange, onRe
                 onChange={(e) => setRefineText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && submitRefine()}
                 disabled={refining}
-                placeholder='refine this day — "more street food, no museums…"'
+                placeholder='refine this day: "more street food, no museums…"'
                 className="font-hand flex-1 focus:outline-none"
                 style={{
                   padding: '11px 18px',
@@ -322,7 +382,7 @@ export function ItineraryBinder({ itinerary, cards, activeDay, onDayChange, onRe
                 />
                 <div className="flex justify-between items-baseline" style={{ marginTop: 10, padding: '0 3px' }}>
                   <span className="font-display truncate" style={{ fontWeight: 700, fontSize: 15, color: '#2c1810' }}>
-                    {p.time ? `${p.time} — ` : ''}{p.card.location.nameEnglish || p.card.title}
+                    {p.time ? `${p.time} · ` : ''}{p.card.location.nameEnglish || p.card.title}
                   </span>
                   <span className="shrink-0" style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.12em', color: '#a86030', marginLeft: 8 }}>
                     № 0{i + 1}

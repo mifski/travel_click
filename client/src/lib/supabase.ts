@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { TravelCard } from './types'
+import type { TravelCard, TripContext, AgeRange, TripObjective, PriceRange } from './types'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
@@ -70,6 +70,23 @@ export interface DbCard {
   saved_at: string
 }
 
+/** Map a Supabase trip row into the local store shape */
+export function dbTripToTripContext(t: DbTrip): TripContext {
+  const today = new Date().toISOString().split('T')[0]
+  return {
+    id: t.id,
+    destination: t.destination,
+    country: t.country,
+    startDate: t.start_date ?? today,
+    endDate: t.end_date ?? today,
+    paxCount: t.pax_count,
+    ageRanges: (t.age_ranges ?? []) as AgeRange[],
+    objectives: (t.objectives ?? []) as TripObjective[],
+    priceRange: (t.price_range ?? 'mid') as PriceRange,
+    createdAt: t.created_at,
+  }
+}
+
 /** Map a Supabase card row back into the local store shape (inverse of syncCardSave). */
 export function dbCardToTravelCard(row: DbCard): TravelCard {
   return {
@@ -106,15 +123,16 @@ export async function upsertProfile(profile: Omit<DbProfile, 'created_at'>) {
 }
 
 export async function getProfile(userId: string) {
-  return supabase.from('profiles').select('*').eq('id', userId).single()
+  return supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
 }
 
 export async function saveTrip(trip: DbTrip) {
   return supabase.from('trips').upsert(trip, { onConflict: 'id' })
 }
 
-export async function getUserTrips(userId: string) {
-  return supabase.from('trips').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+/** Trips the user owns or was added to (RLS decides; see supabase-collab.sql) */
+export async function getUserTrips() {
+  return supabase.from('trips').select('*').order('created_at', { ascending: false })
 }
 
 export async function deleteTrip(tripId: string) {
@@ -131,4 +149,45 @@ export async function getTripCards(tripId: string) {
 
 export async function deleteCard(cardId: string) {
   return supabase.from('cards').delete().eq('id', cardId)
+}
+
+export interface DbTripData {
+  trip_id: string
+  user_id: string
+  kind: string
+  data: unknown
+  updated_at: string
+}
+
+export async function getTripData(tripIds: string[]) {
+  return supabase.from('trip_data').select('*').in('trip_id', tripIds)
+}
+
+export async function saveTripData(row: DbTripData) {
+  return supabase.from('trip_data').upsert(row, { onConflict: 'trip_id,kind' })
+}
+
+// ─── Shared boards ────────────────────────────────────────────────────────────
+
+export interface TripPerson {
+  id: string
+  username: string
+  display_name: string
+  avatar_url: string | null
+  role: 'owner' | 'member'
+}
+
+export async function getTripPeople(tripId: string) {
+  const { data, error } = await supabase.rpc('trip_people', { tid: tripId })
+  return { people: (data ?? []) as TripPerson[], error }
+}
+
+export async function addTripMember(tripId: string, username: string) {
+  const { data, error } = await supabase.rpc('add_trip_member', { tid: tripId, member_username: username })
+  return { person: data as TripPerson | null, error }
+}
+
+/** Owner removes someone, or a member leaves (pass their own id) */
+export async function removeTripMember(tripId: string, userId: string) {
+  return supabase.from('trip_members').delete().eq('trip_id', tripId).eq('user_id', userId)
 }

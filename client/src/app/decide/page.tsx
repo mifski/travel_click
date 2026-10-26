@@ -6,20 +6,22 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Plus, X, Scale, Loader2, Sparkles,
-  Trophy, ExternalLink, MapPin, Wallet, BedDouble, ArrowRight
+  Trophy, ExternalLink, MapPin, Wallet, BedDouble, ArrowRight,
+  Snowflake, Leaf, Sun, Shuffle, CloudRain, Users, Stamp, Plane, TriangleAlert, type LucideIcon,
 } from 'lucide-react'
 import { useTripStore } from '@/lib/store'
 import { toast } from '@/components/UI/Toaster'
 import type { DestinationComparison, DestinationScore, TempPreference, TripContext } from '@/lib/types'
 import { generateId, googleFlightsUrl, cn } from '@/lib/utils'
+import { Logo } from '@/components/UI/Logo'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
-const TEMP_OPTIONS: { key: TempPreference; label: string; icon: string }[] = [
-  { key: 'cold', label: 'Nice & cold', icon: '🧣' },
-  { key: 'mild', label: 'Mild', icon: '🍂' },
-  { key: 'warm', label: 'Warm', icon: '☀️' },
-  { key: 'any', label: 'Don\'t mind', icon: '🤷' },
+const TEMP_OPTIONS: { key: TempPreference; label: string; Icon: LucideIcon }[] = [
+  { key: 'cold', label: 'Nice & cold', Icon: Snowflake },
+  { key: 'mild', label: 'Mild', Icon: Leaf },
+  { key: 'warm', label: 'Warm', Icon: Sun },
+  { key: 'any', label: 'Don\'t mind', Icon: Shuffle },
 ]
 
 const PRIORITY_OPTIONS = ['low prices', 'food', 'culture', 'nature', 'shopping', 'nightlife']
@@ -92,7 +94,7 @@ export default function DecidePage() {
     setMonths(['November', 'December'])
     setTempPref('cold')
     setPriorities(['low prices', 'food'])
-    setNote('Travelling with my mom — she only cares about prices and cool weather. Flights are ~$700 to all three.')
+    setNote('Travelling with my mom. She only cares about prices and cool weather. Flights are ~S$950 to all three.')
     setPax(2)
   }
 
@@ -159,27 +161,27 @@ export default function DecidePage() {
         }
       }
     } catch { /* local-only is fine */ }
-    toast.success(`Board created for ${score.destination} — dates are editable defaults`)
+    toast.success(`Board created for ${score.destination}. Dates are editable defaults`)
     router.push(`/board/${trip.id}`)
   }
 
   const canCompare = candidates.length >= 2 && months.length > 0 && !loading
 
   return (
-    <div className="scrapbook-bg min-h-screen">
+    <div className="scrapbook-bg min-h-dvh">
       {/* Header */}
       <header className="px-6 sm:px-10 py-4 flex items-center justify-between"
         style={{ background: 'rgba(233,223,205,.85)', backdropFilter: 'blur(8px)' }}>
         <div className="flex items-center gap-4">
-          <Link href="/" aria-label="Back to home" className="transition-colors hover:text-[#2c1810]" style={{ color: 'rgba(44,24,16,.5)' }}>
+          <Link href="/" aria-label="Back to home" className="transition-colors hover:text-[#2c1810]" style={{ color: 'rgba(44,24,16,.68)' }}>
             <ArrowLeft size={18} />
           </Link>
           <Link href="/" className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
-            TravelClick<span style={{ color: '#c94040' }}>.</span>
+            <Logo fontSize={19} />
           </Link>
-          <span style={{ fontSize: 12, color: 'rgba(44,24,16,.45)' }}>/&nbsp;&nbsp;Destination decider</span>
+          <span style={{ fontSize: 12, color: 'rgba(44,24,16,.68)' }}>/&nbsp;&nbsp;Destination decider</span>
         </div>
-        <span className="font-hand hidden sm:block" style={{ fontSize: 17, color: 'rgba(44,24,16,.5)', transform: 'rotate(-1deg)' }}>
+        <span className="font-hand hidden sm:block" style={{ fontSize: 17, color: 'rgba(44,24,16,.68)', transform: 'rotate(-1deg)' }}>
           can&rsquo;t pick? let the evidence decide ⚖️
         </span>
       </header>
@@ -191,11 +193,11 @@ export default function DecidePage() {
           <div className="flex items-start justify-between gap-3 mb-5">
             <div>
               <h2 className="font-bold text-[#2c1810]">Where are you torn between?</h2>
-              <p className="text-amber-800/50 text-xs mt-0.5">2–4 cities · we&rsquo;ll compare weather, costs, visas & seasonal traps for your months</p>
+              <p className="text-[#7a5a40] text-xs mt-0.5">2-4 cities · we&rsquo;ll compare weather, costs, visas & seasonal traps for your months</p>
             </div>
             <button onClick={loadExample}
               className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border-2 border-dashed border-[#7e9ab5]/50 text-[#3a5f7a] bg-[#c0d4e8]/30 hover:bg-[#c0d4e8]/60 transition-colors">
-              ✨ Try the example
+              Try the example
             </button>
           </div>
 
@@ -226,13 +228,13 @@ export default function DecidePage() {
                 </button>
               </span>
             ))}
-            {candidates.length === 0 && <span className="text-xs text-amber-800/35 py-1.5">No candidates yet — add at least two</span>}
+            {candidates.length === 0 && <span className="text-xs text-[#7a5a40] py-1.5">No candidates yet. Add at least two</span>}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {/* Months */}
             <div>
-              <label className="text-xs font-bold text-amber-900/70 mb-2 block">Candidate months <span className="font-normal opacity-60">(up to 3)</span></label>
+              <label className="text-xs font-bold text-[#6b4a32] mb-2 block">Candidate months <span className="font-normal opacity-60">(up to 3)</span></label>
               <div className="flex flex-wrap gap-1.5">
                 {MONTHS.map((m) => {
                   const active = months.includes(m)
@@ -240,7 +242,7 @@ export default function DecidePage() {
                   return (
                     <button key={m} onClick={() => toggleMonth(m)} disabled={disabled} aria-pressed={active}
                       className={cn('px-2.5 py-1.5 rounded-lg text-xs font-bold border-2 transition-all',
-                        active ? 'text-white border-[#7e9ab5]' : disabled ? 'bg-amber-50 border-amber-100 text-amber-900/25' : 'bg-white border-amber-200 text-amber-900/60 hover:border-[#7e9ab5]/50')}
+                        active ? 'text-white border-[#7e9ab5]' : disabled ? 'bg-amber-50 border-amber-100 text-amber-900/25' : 'bg-white border-amber-200 text-[#6b4a32] hover:border-[#7e9ab5]/50')}
                       style={active ? { background: '#7e9ab5' } : {}}>
                       {m.slice(0, 3)}
                     </button>
@@ -251,26 +253,26 @@ export default function DecidePage() {
 
             {/* Temp pref */}
             <div>
-              <label className="text-xs font-bold text-amber-900/70 mb-2 block">Weather you want</label>
+              <label className="text-xs font-bold text-[#6b4a32] mb-2 block">Weather you want</label>
               <div className="flex flex-wrap gap-1.5">
                 {TEMP_OPTIONS.map((t) => (
                   <button key={t.key} onClick={() => setTempPref(t.key)} aria-pressed={tempPref === t.key}
                     className={cn('px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all flex items-center gap-1.5',
-                      tempPref === t.key ? 'text-white border-[#6b8f5e]' : 'bg-white border-amber-200 text-amber-900/60 hover:border-[#6b8f5e]/50')}
+                      tempPref === t.key ? 'text-white border-[#6b8f5e]' : 'bg-white border-amber-200 text-[#6b4a32] hover:border-[#6b8f5e]/50')}
                     style={tempPref === t.key ? { background: '#6b8f5e' } : {}}>
-                    <span>{t.icon}</span>{t.label}
+                    <t.Icon size={14} aria-hidden="true" />{t.label}
                   </button>
                 ))}
               </div>
 
-              <label className="text-xs font-bold text-amber-900/70 mb-2 mt-4 block">What matters most</label>
+              <label className="text-xs font-bold text-[#6b4a32] mb-2 mt-4 block">What matters most</label>
               <div className="flex flex-wrap gap-1.5">
                 {PRIORITY_OPTIONS.map((p) => {
                   const active = priorities.includes(p)
                   return (
                     <button key={p} onClick={() => togglePriority(p)} aria-pressed={active}
                       className={cn('px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all capitalize',
-                        active ? 'text-white border-[#c94040]' : 'bg-white border-amber-200 text-amber-900/60 hover:border-[#c94040]/50')}
+                        active ? 'text-white border-[#c94040]' : 'bg-white border-amber-200 text-[#6b4a32] hover:border-[#c94040]/50')}
                       style={active ? { background: '#c94040' } : {}}>
                       {p}
                     </button>
@@ -285,7 +287,7 @@ export default function DecidePage() {
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder='Anything else? e.g. "with my mom — she cares about prices and cool weather"'
+              placeholder='Anything else? e.g. "with my mom, she cares about prices and cool weather"'
               className="flex-1 bg-amber-50/60 border border-amber-200 rounded-xl px-4 py-2.5 text-sm text-[#2c1810] placeholder-amber-700/35 focus:outline-none focus:border-[#7e9ab5] focus:bg-white transition-colors"
             />
             <div className="flex items-center gap-2 shrink-0">
@@ -293,7 +295,7 @@ export default function DecidePage() {
                 <button onClick={() => setPax((p) => Math.max(1, p - 1))} aria-label="Fewer travellers" className="text-amber-700 font-bold px-1">−</button>
                 <span className="text-sm font-bold text-[#2c1810] w-4 text-center">{pax}</span>
                 <button onClick={() => setPax((p) => p + 1)} aria-label="More travellers" className="text-amber-700 font-bold px-1">+</button>
-                <span className="text-[10px] text-amber-700/50 font-semibold">pax</span>
+                <span className="text-[10px] text-[#7a5a40] font-semibold">pax</span>
               </div>
               <button onClick={compare} disabled={!canCompare}
                 className="pill-coral pill-lift flex items-center gap-2 px-6 py-2.5 rounded-full font-semibold text-sm disabled:opacity-40 whitespace-nowrap">
@@ -312,11 +314,11 @@ export default function DecidePage() {
             </motion.div>
             <AnimatePresence mode="wait">
               <motion.p key={loadingStep} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-                className="text-amber-800/70 text-sm font-medium">
+                className="text-[#6b4a32] text-sm font-medium">
                 {LOADING_STEPS[loadingStep]}
               </motion.p>
             </AnimatePresence>
-            <p className="text-amber-700/40 text-xs">Comparing {candidates.length} destinations · usually 15–30 seconds</p>
+            <p className="text-[#7a5a40] text-xs">Comparing {candidates.length} destinations · usually 15-30 seconds</p>
           </div>
         )}
 
@@ -366,7 +368,7 @@ export default function DecidePage() {
                         <h3 className="font-bold text-[#2c1810] text-lg leading-tight" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>
                           {r.destination}
                         </h3>
-                        <p className="text-amber-800/50 text-xs">{r.country}{r.iata ? ` · ${r.iata}` : ''}</p>
+                        <p className="text-[#7a5a40] text-xs">{r.country}{r.iata ? ` · ${r.iata}` : ''}</p>
                       </div>
                       <div className="shrink-0 w-12 h-12 rounded-full flex flex-col items-center justify-center shadow-md" style={{ background: sc.bg }}>
                         <span className="text-base font-black leading-none" style={{ color: sc.text }}>{r.fitScore}</span>
@@ -382,12 +384,12 @@ export default function DecidePage() {
                         <div key={m.month} className="flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50/50 px-2.5 py-1.5">
                           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: tempDot(m.tempHighC) }} />
                           <span className="text-[11px] font-bold text-[#2c1810] w-8">{m.month.slice(0, 3)}</span>
-                          <span className="text-[11px] text-amber-900/70 font-semibold">{m.tempLowC}–{m.tempHighC}°C</span>
-                          <span className="text-[10px] text-amber-800/50 ml-auto">🌧 {m.rain} · 👥 {m.crowds}</span>
+                          <span className="text-[11px] text-[#6b4a32] font-semibold">{m.tempLowC}-{m.tempHighC}°C</span>
+                          <span className="text-[10px] text-[#7a5a40] ml-auto flex items-center gap-1"><CloudRain size={10} aria-label="Rain" /> {m.rain} <Users size={10} className="ml-1.5" aria-label="Crowds" /> {m.crowds}</span>
                         </div>
                       ))}
                       {r.months.some((m) => m.note) && (
-                        <p className="text-[10px] text-amber-800/55 leading-snug px-0.5">
+                        <p className="text-[10px] text-[#6b4a32] leading-snug px-0.5">
                           {r.months.filter((m) => m.note).map((m) => `${m.month.slice(0, 3)}: ${m.note}`).join(' · ')}
                         </p>
                       )}
@@ -396,18 +398,18 @@ export default function DecidePage() {
                     {/* Costs + visa */}
                     <div className="grid grid-cols-2 gap-2 mb-3">
                       <div className="rounded-lg border border-amber-100 bg-amber-50/50 px-2.5 py-2">
-                        <p className="text-[9px] font-black uppercase tracking-wide text-amber-700/60 flex items-center gap-1"><Wallet size={9} /> Daily / person</p>
+                        <p className="text-[9px] font-black uppercase tracking-wide text-[#6b4a32] flex items-center gap-1"><Wallet size={9} /> Daily / person</p>
                         <p className="text-sm font-bold text-[#2c1810]">{r.dailyCostUSD}</p>
                       </div>
                       <div className="rounded-lg border border-amber-100 bg-amber-50/50 px-2.5 py-2">
-                        <p className="text-[9px] font-black uppercase tracking-wide text-amber-700/60 flex items-center gap-1"><BedDouble size={9} /> Hotel / night</p>
+                        <p className="text-[9px] font-black uppercase tracking-wide text-[#6b4a32] flex items-center gap-1"><BedDouble size={9} /> Hotel / night</p>
                         <p className="text-sm font-bold text-[#2c1810]">{r.hotelNightUSD}</p>
                       </div>
                     </div>
 
                     <div className="text-[11px] leading-relaxed space-y-1.5 mb-3">
-                      <p className="text-[#3a5f7a]"><span className="font-bold">🛂 Entry:</span> {r.visaNote}</p>
-                      <p className="text-amber-900/70"><span className="font-bold">✈️ Flights:</span> {r.flightNote}</p>
+                      <p className="text-[#3a5f7a]"><span className="font-bold inline-flex items-center gap-1"><Stamp size={11} aria-hidden="true" /> Entry:</span> {r.visaNote}</p>
+                      <p className="text-[#6b4a32]"><span className="font-bold inline-flex items-center gap-1"><Plane size={11} aria-hidden="true" /> Flights:</span> {r.flightNote}</p>
                     </div>
 
                     {/* Highlights / watchouts */}
@@ -419,12 +421,12 @@ export default function DecidePage() {
                     {r.watchouts?.length > 0 && (
                       <div className="mb-3">
                         {r.watchouts.map((w) => (
-                          <p key={w} className="text-[10px] text-[#8a3050] leading-snug">⚠️ {w}</p>
+                          <p key={w} className="text-[10px] text-[#8a3050] leading-snug flex gap-1"><TriangleAlert size={11} className="shrink-0 mt-px" aria-hidden="true" />{w}</p>
                         ))}
                       </div>
                     )}
 
-                    <p className="text-[11px] text-amber-900/60 leading-relaxed mb-4 border-t border-dashed border-amber-200 pt-2">
+                    <p className="text-[11px] text-[#6b4a32] leading-relaxed mb-4 border-t border-dashed border-amber-200 pt-2">
                       <span className="font-bold">Why this score:</span> {r.fitReason}
                     </p>
 
@@ -440,7 +442,7 @@ export default function DecidePage() {
                       <a href={googleFlightsUrl(r.destination, isWinner ? comparison.verdict.bestMonth : r.months[0]?.month)}
                         target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-semibold transition-colors hover:text-[#2c1810]"
-                        style={{ border: '1px solid rgba(44,24,16,.18)', color: 'rgba(44,24,16,.6)' }}>
+                        style={{ border: '1px solid rgba(44,24,16,.18)', color: 'rgba(44,24,16,.68)' }}>
                         <ExternalLink size={11} /> Flights
                       </a>
                     </div>
@@ -449,17 +451,17 @@ export default function DecidePage() {
               })}
             </div>
 
-            <p className="text-center text-amber-700/40 text-xs mt-6 flex items-center justify-center gap-1.5">
-              <Sparkles size={11} /> AI-estimated from climate normals & typical prices — always sanity-check fares before booking
+            <p className="text-center text-[#7a5a40] text-xs mt-6 flex items-center justify-center gap-1.5">
+              <Sparkles size={11} /> AI-estimated from climate normals & typical prices. Always sanity-check fares before booking
             </p>
           </motion.div>
         )}
 
         {/* Empty state */}
         {!comparison && !loading && (
-          <div className="text-center py-12 text-amber-800/40">
-            <div className="text-5xl mb-4">⚖️</div>
-            <p className="font-medium">Add your candidate cities and months — the verdict takes ~20 seconds</p>
+          <div className="text-center py-12 text-[#7a5a40]">
+            <Scale size={44} strokeWidth={1.5} className="mx-auto mb-4" aria-hidden="true" />
+            <p className="font-medium">Add your candidate cities and months. The verdict takes ~20 seconds</p>
           </div>
         )}
       </div>

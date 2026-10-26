@@ -9,8 +9,14 @@ import { ItineraryBinder, DayPage, DAY_COLORS } from '@/components/Itinerary/Iti
 import { GenerationOverlay } from '@/components/UI/GenerationOverlay'
 import { toast } from '@/components/UI/Toaster'
 import { DEMO_TRIP_ID, seedDemo } from '@/lib/demo-data'
-import type { GeneratedItinerary } from '@/lib/types'
+import type { GeneratedItinerary, RealityReport, TripContext } from '@/lib/types'
+import { BookByList, PaceControl } from '@/components/Itinerary/RealityPanel'
+import { PlanSheet } from '@/components/Itinerary/PlanSheet'
+import { planRequestBody } from '@/lib/plan-request'
+import { EMPTY_MARKS } from '@/lib/reality'
 import { formatDateRange } from '@/lib/utils'
+import { Printer, RotateCw } from 'lucide-react'
+import { Logo } from '@/components/UI/Logo'
 
 const cream = (a: number) => `rgba(242,234,216,${a})`
 
@@ -29,6 +35,10 @@ export default function ItineraryPage() {
   const cards = useTripStore((s) => s.cards[tripId]) ?? []
   const itinerary = useTripStore((s) => s.itineraries[tripId] ?? null)
   const saveItinerary = useTripStore((s) => s.saveItinerary)
+  const report = useTripStore((s) => s.realityChecks[tripId])
+  const marks = useTripStore((s) => s.realityMarks[tripId]) ?? EMPTY_MARKS
+  const saveRealityCheck = useTripStore((s) => s.saveRealityCheck)
+  const updateTrip = useTripStore((s) => s.updateTrip)
   const { user, profile } = useAuth()
 
   const [mounted, setMounted] = useState(false)
@@ -36,6 +46,8 @@ export default function ItineraryPage() {
   const [refining, setRefining] = useState(false)
   const [error, setError] = useState('')
   const [activeDay, setActiveDay] = useState(0)
+  const [checking, setChecking] = useState(false)
+  const [planOpen, setPlanOpen] = useState(false)
 
   const isDemo = tripId === DEMO_TRIP_ID
 
@@ -49,33 +61,50 @@ export default function ItineraryPage() {
   useEffect(() => {
     if (!mounted) return
     if (!trip && !isDemo) { router.replace('/boards'); return }
-    if (trip && !itinerary && !loading) generate()
+    if (trip && !itinerary && !loading) setPlanOpen(true)
+    else if (trip && itinerary && !report && !checking) void realityCheck(trip, itinerary)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, trip])
 
-  async function generate(customInstructions?: string) {
+  /** Second pass after every generate/refine — the stamp stays "Checking…" until it lands */
+  async function realityCheck(t: TripContext, it: GeneratedItinerary) {
+    setChecking(true)
+    try {
+      const res = await fetch('/api/reality-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trip: t, itinerary: it }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Reality Check failed')
+      saveRealityCheck(data.report as RealityReport)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Reality Check failed')
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  async function generate(customInstructions?: string, tripOverride?: TripContext, isRefine = !!customInstructions) {
+    const trip = tripOverride ?? useTripStore.getState().trips.find((t) => t.id === tripId)
     if (!trip) return
-    const isRefine = !!customInstructions
     if (isRefine) setRefining(true)
     else setLoading(true)
     setError('')
-
-    const savedPlaces = cards.map((c) =>
-      [c.location.nameEnglish, c.location.city, c.location.country].filter(Boolean).join(', ')
-    )
 
     try {
       const res = await fetch('/api/itinerary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trip, savedPlaces, instructions: customInstructions }),
+        body: JSON.stringify({ ...planRequestBody(tripId, customInstructions), trip }),
       })
 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to generate itinerary')
 
       saveItinerary(data.itinerary as GeneratedItinerary)
-      if (isRefine) toast.success('Refined — your binder is updated ✦')
+      if (isRefine) toast.success('Refined, your binder is updated ✦')
+      void realityCheck(trip, data.itinerary as GeneratedItinerary)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to generate itinerary'
       if (isRefine) toast.error(msg)
@@ -100,7 +129,7 @@ export default function ItineraryPage() {
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-dvh"
       style={{
         background: '#201209',
         backgroundImage:
@@ -112,11 +141,11 @@ export default function ItineraryPage() {
       <div className="mx-auto print-hidden" style={{ maxWidth: 1280 }}>
 
         {/* ── Top bar ── */}
-        <div className="flex items-center justify-between flex-wrap gap-4" style={{ padding: '20px 40px' }}>
+        <div className="flex items-center justify-between flex-wrap gap-x-4 gap-y-3" style={{ padding: '20px var(--gutter)' }}>
           <Link href={`/board/${tripId}`} className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#f2ead8' }}>
-            TravelClick<span style={{ color: '#c9a84c' }}>.</span>
+            <Logo tone="dark" fontSize={19} />
           </Link>
-          <div className="flex flex-wrap" style={{ gap: 26, fontSize: 12, color: cream(0.55) }}>
+          <div className="swipe-row order-last sm:order-none w-full sm:w-auto" style={{ gap: 26, fontSize: 12.5, color: cream(0.55), paddingBottom: 4 }}>
             <Link href={`/board/${tripId}`} className="transition-colors hover:text-[#f2ead8]">← Moodboard</Link>
             <span style={{ color: '#f2ead8', borderBottom: '2px solid #c9a84c', paddingBottom: 3 }}>Itinerary</span>
             {navLinks.map((l) => (
@@ -130,19 +159,21 @@ export default function ItineraryPage() {
               <>
                 <button
                   onClick={() => window.print()}
-                  className="rounded-full transition-all hover:border-[#c9a84c] hover:text-[#c9a84c]"
-                  style={{ padding: '7px 16px', border: `1px solid ${cream(0.25)}`, color: cream(0.7), fontSize: 11.5 }}
+                  aria-label="Print or save as PDF"
+                  className="rounded-full transition-all hover:border-[#c9a84c] hover:text-[#c9a84c] inline-flex items-center justify-center gap-1.5 min-w-[36px] min-h-[36px]"
+                  style={{ padding: '7px 12px', border: `1px solid ${cream(0.25)}`, color: cream(0.7), fontSize: 11.5 }}
                 >
-                  🖨 Print / PDF
+                  <Printer size={13} aria-hidden="true" /> <span className="hidden sm:inline">Print / PDF</span>
                 </button>
                 <button
-                  onClick={() => generate()}
+                  onClick={() => setPlanOpen(true)}
                   disabled={loading || refining}
                   title="Regenerate the whole itinerary"
-                  className="rounded-full transition-all hover:border-[#c9a84c] hover:text-[#c9a84c] disabled:opacity-40"
-                  style={{ padding: '7px 16px', border: `1px solid ${cream(0.25)}`, color: cream(0.7), fontSize: 11.5 }}
+                  aria-label="Regenerate the whole itinerary"
+                  className="rounded-full transition-all hover:border-[#c9a84c] hover:text-[#c9a84c] disabled:opacity-40 inline-flex items-center justify-center gap-1.5 min-w-[36px] min-h-[36px]"
+                  style={{ padding: '7px 12px', border: `1px solid ${cream(0.25)}`, color: cream(0.7), fontSize: 11.5 }}
                 >
-                  ↻ Regenerate
+                  <RotateCw size={13} aria-hidden="true" /> <span className="hidden sm:inline">Regenerate</span>
                 </button>
               </>
             )}
@@ -156,12 +187,12 @@ export default function ItineraryPage() {
         </div>
 
         {/* ── Masthead ── */}
-        <div className="flex items-end justify-between flex-wrap gap-4" style={{ padding: '22px 40px 6px' }}>
+        <div className="flex items-end justify-between flex-wrap gap-4" style={{ padding: '22px var(--gutter) 6px' }}>
           <div className="relative">
-            <div style={{ fontSize: 11, letterSpacing: '.3em', color: '#c9a84c', fontWeight: 600, marginBottom: 8 }}>
+            <div style={{ fontSize: 11, letterSpacing: '.2em', lineHeight: 1.6, color: '#c9a84c', fontWeight: 600, marginBottom: 8 }}>
               THE BINDER · {dateRange} · {trip.paxCount} TRAVELLER{trip.paxCount > 1 ? 'S' : ''}
             </div>
-            <h1 className="font-display m-0" style={{ fontWeight: 800, fontSize: 72, lineHeight: 0.92, color: '#f2ead8', letterSpacing: '-.02em' }}>
+            <h1 className="font-display m-0" style={{ fontWeight: 800, fontSize: 'clamp(44px, 12vw, 72px)', lineHeight: 0.95, color: '#f2ead8', letterSpacing: '-.02em' }}>
               {trip.destination},{' '}
               <span className="italic" style={{ fontWeight: 500, color: cream(0.75) }}>day by day</span>
             </h1>
@@ -173,21 +204,40 @@ export default function ItineraryPage() {
               {ghost}
             </span>
           </div>
+          <div className="flex flex-col items-start sm:items-end" style={{ gap: 14 }}>
+          {itinerary && (
+            <PaceControl
+              key={`${trip.pace}-${trip.dayStart}-${trip.discovery}-${trip.homeBase}`}
+              settings={{
+                pace: trip.pace ?? 'balanced',
+                dayStart: trip.dayStart ?? '09:00',
+                discovery: trip.discovery ?? 2,
+                homeBase: trip.homeBase ?? '',
+              }}
+              disabled={loading || refining}
+              onApply={(settings) => {
+                const patch = { ...settings, homeBase: settings.homeBase || undefined }
+                updateTrip(trip.id, patch)
+                void generate(undefined, { ...trip, ...patch })
+              }}
+            />
+          )}
           {itinerary?.totalEstimatedCost && (
-            <div className="flex flex-col items-end gap-1.5" style={{ paddingBottom: 8 }}>
+            <div className="flex flex-col items-start sm:items-end gap-1.5">
               <span style={{ fontSize: 12, color: cream(0.55) }}>Trip total (est.)</span>
-              <span className="font-display" style={{ fontWeight: 800, fontSize: 30, color: '#c9a84c' }}>
+              <span className="font-display" style={{ fontWeight: 800, fontSize: 'clamp(22px, 6vw, 30px)', color: '#c9a84c' }}>
                 {itinerary.totalEstimatedCost}
               </span>
             </div>
           )}
+          </div>
         </div>
 
         {/* ── Error state ── */}
         {error && !loading && (
-          <div className="flex flex-col items-center gap-5" style={{ padding: '60px 40px' }}>
+          <div className="flex flex-col items-center gap-5" style={{ padding: '60px var(--gutter)' }}>
             <p className="font-hand text-center" style={{ fontSize: 24, color: cream(0.7), maxWidth: 420 }}>
-              the binder didn&rsquo;t make it off the press — {error}
+              the binder didn&rsquo;t make it off the press: {error}
             </p>
             <button
               onClick={() => generate()}
@@ -209,11 +259,17 @@ export default function ItineraryPage() {
               onDayChange={setActiveDay}
               onRefine={(instructions) => generate(`For day ${activeDay + 1}: ${instructions}`)}
               refining={refining}
+              report={report}
+              marks={marks}
+              checking={checking}
+              onRecheck={() => void realityCheck(trip, itinerary)}
             />
+
+            {report && <BookByList tripId={tripId} report={report} marks={marks} destination={trip.destination} />}
 
             {/* General tips */}
             {itinerary.generalTips?.length > 0 && (
-              <div style={{ padding: '40px 40px 0', maxWidth: 900 }}>
+              <div style={{ padding: '40px var(--gutter) 0', maxWidth: 900 }}>
                 <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '.2em', color: 'rgba(201,168,76,.7)' }}>
                   GOOD TO KNOW
                 </span>
@@ -231,6 +287,17 @@ export default function ItineraryPage() {
         )}
       </div>
 
+      <PlanSheet
+        tripId={tripId}
+        open={planOpen}
+        onClose={() => { setPlanOpen(false); if (!itinerary) router.push(`/board/${tripId}`) }}
+        onPlan={({ instructions, ...settings }) => {
+          setPlanOpen(false)
+          updateTrip(trip.id, settings)
+          void generate(instructions || undefined, { ...trip, ...settings }, false)
+        }}
+      />
+
       {/* First generation + refine both run under the staged overlay */}
       <GenerationOverlay show={loading} />
       <GenerationOverlay show={refining} title="Refining this day" steps={REFINE_STEPS} />
@@ -239,7 +306,7 @@ export default function ItineraryPage() {
       {itinerary && (
         <div className="print-only px-2" style={{ background: 'white', color: '#1a0f00' }}>
           <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: 'Georgia, serif' }}>
-            {itinerary.destination} — Trip Itinerary
+            {itinerary.destination}: Trip Itinerary
           </h1>
           <p className="text-sm text-stone-600 mb-1">
             {trip.startDate} → {trip.endDate} · {trip.paxCount} traveller{trip.paxCount > 1 ? 's' : ''}
@@ -259,7 +326,7 @@ export default function ItineraryPage() {
               ))}
             </div>
           )}
-          <p className="text-[10px] text-stone-400 mt-6">Generated with TravelClick ✈️</p>
+          <p className="text-[10px] text-stone-400 mt-6">Generated with TravelClick</p>
         </div>
       )}
     </div>

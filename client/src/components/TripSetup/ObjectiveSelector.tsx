@@ -14,7 +14,7 @@ export function ObjectiveSelector({ selected, onChange, max = 3 }: Props) {
     <div>
       <div className="flex flex-wrap gap-2">
         {(Object.keys(OBJECTIVE_LABELS) as TripObjective[]).map((obj) => {
-          const { label, icon } = OBJECTIVE_LABELS[obj]
+          const { label, icon: Icon } = OBJECTIVE_LABELS[obj]
           const active = selected.includes(obj)
           const disabled = !active && selected.length >= max
           return (
@@ -30,16 +30,16 @@ export function ObjectiveSelector({ selected, onChange, max = 3 }: Props) {
                   ? 'border-[#c94040] bg-[#c94040] text-white shadow-md scale-[1.03]'
                   : disabled
                   ? 'bg-amber-50 border-amber-100 text-amber-900/25 cursor-not-allowed'
-                  : 'bg-white border-amber-200 text-amber-900/70 hover:border-[#c94040]/50 hover:text-amber-900'
+                  : 'bg-white border-amber-200 text-[#6b4a32] hover:border-[#c94040]/50 hover:text-amber-900'
               )}
             >
-              <span>{icon}</span>
+              <Icon size={15} strokeWidth={2} aria-hidden="true" />
               <span>{label}</span>
             </button>
           )
         })}
       </div>
-      <p className="text-xs text-amber-800/50 mt-2 font-medium">
+      <p className="text-xs text-[#7a5a40] mt-2 font-medium">
         {selected.length}/{max} selected
       </p>
     </div>

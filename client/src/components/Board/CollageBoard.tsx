@@ -22,6 +22,8 @@ interface DraggableProps {
   y0: number
   rotation: number
   dimmed?: boolean
+  /** Phones: no dragging, so a swipe over a card scrolls the page */
+  fixed?: boolean
   onCommit: (x: number, y: number) => void
   children: React.ReactNode
 }
@@ -30,7 +32,7 @@ interface DraggableProps {
  * Drag layer: position is a translate offset held in motion values, persisted
  * on drag end. Store updates never feed back in, so there's no double-apply.
  */
-function Draggable({ x0, y0, rotation, dimmed, onCommit, children }: DraggableProps) {
+function Draggable({ x0, y0, rotation, dimmed, fixed, onCommit, children }: DraggableProps) {
   const x = useMotionValue(x0)
   const y = useMotionValue(y0)
   const [dragging, setDragging] = useState(false)
@@ -38,7 +40,7 @@ function Draggable({ x0, y0, rotation, dimmed, onCommit, children }: DraggablePr
 
   return (
     <motion.div
-      drag={!dimmed}
+      drag={!dimmed && !fixed}
       dragMomentum={false}
       onDragStart={() => setDragging(true)}
       onDragEnd={(_e, info) => {
@@ -58,8 +60,8 @@ function Draggable({ x0, y0, rotation, dimmed, onCommit, children }: DraggablePr
         rotate: dragging ? 0 : rotation,
         zIndex: dragging ? 80 : 1,
         position: 'relative',
-        touchAction: 'none',
-        cursor: dragging ? 'grabbing' : 'grab',
+        touchAction: fixed ? 'auto' : 'none',
+        cursor: fixed ? 'pointer' : dragging ? 'grabbing' : 'grab',
         opacity: dimmed ? 0.25 : 1,
         filter: dimmed ? 'grayscale(.8)' : 'none',
         transition: 'opacity .25s ease, filter .25s ease',
@@ -80,9 +82,11 @@ interface Props {
   /** id of a note that was just created (opens focused) */
   freshNoteId?: string | null
   onOpenPin: () => void
+  /** Phone width: one full-width column, no dragging, notes in the flow */
+  compact?: boolean
 }
 
-export function CollageBoard({ trip, cards, notes, activeFilter, freshNoteId, onOpenPin }: Props) {
+export function CollageBoard({ trip, cards, notes, activeFilter, freshNoteId, onOpenPin, compact }: Props) {
   const removeCard = useTripStore((s) => s.removeCard)
   const updateCardPosition = useTripStore((s) => s.updateCardPosition)
   const updateNotePosition = useTripStore((s) => s.updateNotePosition)
@@ -90,31 +94,46 @@ export function CollageBoard({ trip, cards, notes, activeFilter, freshNoteId, on
   const removeNote = useTripStore((s) => s.removeNote)
 
   // Round-robin into columns keeps heights balanced and the order stable
-  const columns: TravelCard[][] = COLUMNS.map(() => [])
-  cards.forEach((card, i) => columns[i % COLUMNS.length].push(card))
+  const layout = compact ? [{ width: '100%', offset: 0 }] : COLUMNS
+  const columns: TravelCard[][] = layout.map(() => [])
+  cards.forEach((card, i) => columns[i % layout.length].push(card))
 
   const startMonthDay = new Date(trip.startDate)
     .toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     .toUpperCase()
 
   return (
-    <div className="relative flex items-start" style={{ gap: 26, width: BOARD_WIDTH, paddingBottom: 130 }}>
+    <div className="relative flex items-start" style={{ gap: 26, width: compact ? '100%' : BOARD_WIDTH, paddingBottom: compact ? 40 : 130 }}>
       {columns.map((col, ci) => (
         <div
           key={ci}
           className="flex flex-col"
-          style={{ gap: 30, width: COLUMNS[ci].width, marginTop: COLUMNS[ci].offset }}
+          style={{ gap: compact ? 22 : 30, width: layout[ci].width, marginTop: layout[ci].offset }}
         >
+          {/* Phones: notes sit at the top of the column instead of floating over it */}
+          {compact && notes.map((note) => (
+            <div key={note.id} style={{ width: '78%', alignSelf: 'flex-end' }}>
+              <Draggable x0={0} y0={0} rotation={note.position.rotation} fixed onCommit={() => {}}>
+                <StickyNoteCard
+                  note={note}
+                  onTextChange={(id, text) => updateNoteText(trip.id, id, text)}
+                  onRemove={(id) => removeNote(trip.id, id)}
+                  autoFocus={note.id === freshNoteId}
+                />
+              </Draggable>
+            </div>
+          ))}
           {col.map((card) => {
             const group = getChipGroup(getCategoryFromTags(card.tags).key)
             const dimmed = !!activeFilter && group !== activeFilter
             return (
               <Draggable
                 key={card.id}
-                x0={card.pinPosition.x}
-                y0={card.pinPosition.y}
-                rotation={card.pinPosition.rotation}
+                x0={compact ? 0 : card.pinPosition.x}
+                y0={compact ? 0 : card.pinPosition.y}
+                rotation={compact ? card.pinPosition.rotation / 2 : card.pinPosition.rotation}
                 dimmed={dimmed}
+                fixed={compact}
                 onCommit={(x, y) =>
                   updateCardPosition(trip.id, card.id, { ...card.pinPosition, x, y })}
               >
@@ -124,7 +143,7 @@ export function CollageBoard({ trip, cards, notes, activeFilter, freshNoteId, on
           })}
 
           {/* Column 4 carries the decorative passport stamp + the add slot */}
-          {ci === COLUMNS.length - 1 && (
+          {ci === layout.length - 1 && (
             <>
               <div
                 aria-hidden="true"
@@ -149,7 +168,7 @@ export function CollageBoard({ trip, cards, notes, activeFilter, freshNoteId, on
                   border: '2px dashed rgba(44,24,16,.2)',
                   borderRadius: 10,
                   padding: '26px 16px',
-                  color: 'rgba(44,24,16,.45)',
+                  color: 'rgba(44,24,16,.68)',
                   background: 'rgba(255,254,249,.4)',
                   transform: 'rotate(-1deg)',
                   cursor: 'pointer',
@@ -176,7 +195,7 @@ export function CollageBoard({ trip, cards, notes, activeFilter, freshNoteId, on
       ))}
 
       {/* Free-floating sticky notes over the collage */}
-      {notes.map((note) => (
+      {!compact && notes.map((note) => (
         <div key={note.id} className="absolute" style={{ left: 0, top: 0, width: 190, zIndex: 6 }}>
           <Draggable
             x0={note.position.x}
@@ -195,9 +214,9 @@ export function CollageBoard({ trip, cards, notes, activeFilter, freshNoteId, on
       ))}
 
       {/* Empty board — a handwritten nudge beside the add slot */}
-      {cards.length === 0 && notes.length === 0 && (
-        <div className="absolute font-hand" style={{ left: 40, top: 60, fontSize: 26, color: 'rgba(44,24,16,.5)', transform: 'rotate(-2deg)', maxWidth: 420 }}>
-          your scrapbook is empty — paste a TikTok, YouTube or IG link and we&rsquo;ll pin the places for you ✏️
+      {!compact && cards.length === 0 && notes.length === 0 && (
+        <div className="absolute font-hand" style={{ left: 40, top: 60, fontSize: 26, color: 'rgba(44,24,16,.68)', transform: 'rotate(-2deg)', maxWidth: 420 }}>
+          your scrapbook is empty: paste a TikTok, YouTube or IG link and we&rsquo;ll pin the places for you ✏️
         </div>
       )}
     </div>

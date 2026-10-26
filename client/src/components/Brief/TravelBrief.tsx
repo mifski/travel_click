@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Loader2, Copy, Check, RefreshCw } from 'lucide-react'
+import { Loader2, Copy, Check, X, RefreshCw, Banknote, Plug, Languages, TrainFront, Handshake, MapPinned, Siren, Coins, type LucideIcon } from 'lucide-react'
 import type { TripContext } from '@/lib/types'
 import { useTripStore } from '@/lib/store'
 import { toast } from '@/components/UI/Toaster'
@@ -56,18 +56,18 @@ export function TravelBrief({ trip }: Props) {
             brief && !loading ? 'transition-colors hover:text-[#2c1810]' : 'pill-coral pill-lift'
           }`}
           style={brief && !loading
-            ? { padding: '9px 18px', border: '1px solid rgba(44,24,16,.18)', color: 'rgba(44,24,16,.6)' }
+            ? { padding: '9px 18px', border: '1px solid rgba(44,24,16,.18)', color: 'rgba(44,24,16,.68)' }
             : { padding: '9px 18px' }}
         >
           {loading ? <Loader2 size={14} className="animate-spin" /> : brief ? <RefreshCw size={13} /> : null}
           {loading ? 'Researching…' : brief ? 'Refresh' : '✦ Get the brief'}
         </button>
       </div>
-      <p className="font-hand mb-4" style={{ fontSize: 16, color: 'rgba(44,24,16,.5)' }}>everything to know before landing ✈</p>
+      <p className="font-hand mb-4" style={{ fontSize: 16, color: 'rgba(44,24,16,.68)' }}>everything to know before landing ✈</p>
 
       {!brief && !loading && (
-        <p className="text-center text-amber-800/40 text-sm py-4">
-          Everything you need to know before landing in {trip.destination} — in one passport page.
+        <p className="text-center text-[#7a5a40] text-sm py-4">
+          Everything you need to know before landing in {trip.destination}, in one passport page.
         </p>
       )}
 
@@ -78,24 +78,24 @@ export function TravelBrief({ trip }: Props) {
           className="grid grid-cols-1 sm:grid-cols-2 gap-3"
         >
           {/* Currency */}
-          <BriefCard icon="💴" title={`Money — ${brief.currency.code}`} color="#6b8f5e">
+          <BriefCard icon={Banknote} title={`Money (${brief.currency.code})`} color="#6b8f5e">
             <p className="font-semibold text-[#2c1810]">{brief.currency.name}</p>
             <p className="mt-1">{brief.currency.cashCulture}</p>
             <p className="mt-1 italic opacity-80">{brief.currency.exchangeTip}</p>
           </BriefCard>
 
           {/* Power + emergency */}
-          <BriefCard icon="🔌" title="Plugs & Safety" color="#c98040">
+          <BriefCard icon={Plug} title="Plugs & Safety" color="#c98040">
             <p><span className="font-semibold">{brief.power.plugType}</span> · {brief.power.voltage}</p>
             <p className="mt-1">{brief.power.note}</p>
-            <p className="mt-2 pt-2 border-t border-dashed border-amber-300/60">
-              🚓 {brief.emergency.police} · 🚑 {brief.emergency.ambulance}
+            <p className="mt-2 pt-2 border-t border-dashed border-amber-300/60 flex items-center gap-1.5">
+              <Siren size={12} aria-hidden="true" /> Police {brief.emergency.police}, ambulance {brief.emergency.ambulance}
             </p>
             <p className="mt-1 opacity-80">{brief.emergency.note}</p>
           </BriefCard>
 
           {/* Phrases */}
-          <BriefCard icon="🗣️" title={`Speak ${brief.language.name}`} color="#9b72bf" wide>
+          <BriefCard icon={Languages} title={`Speak ${brief.language.name}`} color="#9b72bf" wide>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
               {brief.language.phrases.map((p, i) => (
                 <button
@@ -115,25 +115,25 @@ export function TravelBrief({ trip }: Props) {
           </BriefCard>
 
           {/* Getting around */}
-          <BriefCard icon="🚇" title="Getting Around" color="#7e9ab5">
+          <BriefCard icon={TrainFront} title="Getting Around" color="#7e9ab5">
             {brief.gettingAround.map((tip, i) => (
               <p key={i} className="flex gap-1.5 mb-1 last:mb-0"><span className="opacity-50">•</span>{tip}</p>
             ))}
-            <p className="mt-2 pt-2 border-t border-dashed border-amber-300/60 italic opacity-80">💰 {brief.tipping}</p>
+            <p className="mt-2 pt-2 border-t border-dashed border-amber-300/60 italic opacity-80 flex gap-1.5"><Coins size={12} className="shrink-0 mt-0.5" aria-hidden="true" />{brief.tipping}</p>
           </BriefCard>
 
           {/* Etiquette */}
-          <BriefCard icon="🙏" title="Etiquette" color="#c94040">
+          <BriefCard icon={Handshake} title="Etiquette" color="#c94040">
             {brief.etiquette.dos.map((d, i) => (
-              <p key={`do-${i}`} className="flex gap-1.5 mb-1"><span className="text-[#6b8f5e] font-bold">✓</span>{d}</p>
+              <p key={`do-${i}`} className="flex gap-1.5 mb-1"><Check size={12} strokeWidth={3} className="text-[#6b8f5e] shrink-0 mt-0.5" aria-label="Do" />{d}</p>
             ))}
             {brief.etiquette.donts.map((d, i) => (
-              <p key={`dont-${i}`} className="flex gap-1.5 mb-1 last:mb-0"><span className="text-[#c94040] font-bold">✗</span>{d}</p>
+              <p key={`dont-${i}`} className="flex gap-1.5 mb-1 last:mb-0"><X size={12} strokeWidth={3} className="text-[#c94040] shrink-0 mt-0.5" aria-label="Don't" />{d}</p>
             ))}
           </BriefCard>
 
           {/* Neighbourhoods */}
-          <BriefCard icon="🏘️" title="Stay Around" color="#3a7a7a" wide>
+          <BriefCard icon={MapPinned} title="Stay Around" color="#3a7a7a" wide>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {brief.neighbourhoods.map((n) => (
                 <div key={n.name} className="rounded-xl border border-dashed px-3 py-2" style={{ borderColor: '#3a7a7a50', background: '#3a7a7a08' }}>
@@ -149,8 +149,8 @@ export function TravelBrief({ trip }: Props) {
   )
 }
 
-function BriefCard({ icon, title, color, wide, children }: {
-  icon: string; title: string; color: string; wide?: boolean; children: React.ReactNode
+function BriefCard({ icon: Icon, title, color, wide, children }: {
+  icon: LucideIcon; title: string; color: string; wide?: boolean; children: React.ReactNode
 }) {
   return (
     <div
@@ -162,10 +162,10 @@ function BriefCard({ icon, title, color, wide, children }: {
         className="absolute top-2.5 right-2.5 stamp !text-[8px] !px-1.5 !py-0.5 !border-2"
         style={{ color, opacity: 0.45 }}
       >
-        {title.split('—')[0].trim().split(' ')[0]}
+        {title.split('(')[0].trim().split(' ')[0]}
       </div>
       <div className="flex items-center gap-1.5 mb-2">
-        <span className="text-base">{icon}</span>
+        <Icon size={15} style={{ color }} aria-hidden="true" />
         <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color }}>{title}</p>
       </div>
       {children}

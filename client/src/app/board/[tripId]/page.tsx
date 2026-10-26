@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import { X } from 'lucide-react'
+import { X, BedDouble, Stamp, Luggage, Wallet, Link2, StickyNote, Plane, type LucideIcon } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useTripStore } from '@/lib/store'
 import { CollageBoard } from '@/components/Board/CollageBoard'
@@ -20,6 +20,11 @@ import { getCategoryFromTags, getChipGroup, CHIP_GROUPS } from '@/lib/categories
 import { DEMO_TRIP_ID, seedDemo } from '@/lib/demo-data'
 import { getTripStatus, formatDateRange } from '@/lib/utils'
 import type { GeneratedItinerary } from '@/lib/types'
+import { Logo, PostmarkMark } from '@/components/UI/Logo'
+import { useCompact } from '@/lib/use-media'
+import { ShareBoard } from '@/components/Board/ShareBoard'
+import { PlanSheet, type PlanChoices } from '@/components/Itinerary/PlanSheet'
+import { planRequestBody } from '@/lib/plan-request'
 
 type ToolTab = 'stays' | 'brief' | 'packing' | 'budget' | null
 
@@ -55,10 +60,12 @@ export default function BoardPage() {
   const [freshNoteId, setFreshNoteId] = useState<string | null>(null)
   const [pinOpen, setPinOpen] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [planOpen, setPlanOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [demoBanner, setDemoBanner] = useState(true)
 
   const { user, profile } = useAuth()
+  const compact = useCompact()
   const isDemo = tripId === DEMO_TRIP_ID
 
   useEffect(() => { setMounted(true) }, [])
@@ -113,23 +120,27 @@ export default function BoardPage() {
   function handleAddNote() {
     const note = addNote(tripId)
     setFreshNoteId(note.id)
-    toast.info('Sticky added — drag it anywhere')
+    toast.info('Sticky added. Drag it anywhere')
   }
 
-  async function goItinerary() {
+  function goItinerary() {
     if (itinerary) { router.push(`/board/${tripId}/itinerary`); return }
-    if (cards.length === 0) { toast.info('Pin a few places first ✏️'); return }
+    if (cards.length === 0) { toast.info('Pin a few places first'); return }
     if (generating || !trip) return
-    setGenerating(true)
+    setPlanOpen(true)
+  }
 
-    const savedPlaces = cards.map((c) =>
-      [c.location.nameEnglish, c.location.city, c.location.country].filter(Boolean).join(', ')
-    )
+  /** After the plan form: save the choices, then generate */
+  async function planTrip({ instructions, ...settings }: PlanChoices) {
+    if (!trip) return
+    setPlanOpen(false)
+    useTripStore.getState().updateTrip(trip.id, settings)
+    setGenerating(true)
     try {
       const res = await fetch('/api/itinerary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trip, savedPlaces }),
+        body: JSON.stringify(planRequestBody(tripId, instructions || undefined)),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to generate itinerary')
@@ -143,15 +154,15 @@ export default function BoardPage() {
     }
   }
 
-  const toolPills: { key: Exclude<ToolTab, null>; label: string }[] = [
-    { key: 'stays',   label: '🛏 Stays' },
-    { key: 'brief',   label: '🛂 Brief' },
-    { key: 'packing', label: '🧳 Packing' },
-    { key: 'budget',  label: '💰 Budget' },
+  const toolPills: { key: Exclude<ToolTab, null>; label: string; Icon: LucideIcon }[] = [
+    { key: 'stays',   label: 'Stays',   Icon: BedDouble },
+    { key: 'brief',   label: 'Brief',   Icon: Stamp },
+    { key: 'packing', label: 'Packing', Icon: Luggage },
+    { key: 'budget',  label: 'Budget',  Icon: Wallet },
   ]
 
   return (
-    <div className="scrapbook-bg relative min-h-screen overflow-hidden">
+    <div className="scrapbook-bg relative min-h-dvh overflow-hidden">
 
       {/* ── Decorative layers ── */}
       <div
@@ -177,15 +188,15 @@ export default function BoardPage() {
       {/* ── Demo ribbon ── */}
       {isDemo && demoBanner && (
         <div
-          className="relative z-10 px-4 py-2 flex items-center justify-center gap-3 text-[12.5px] font-medium"
+          className="relative z-10 pl-4 pr-10 py-2 flex items-center justify-center gap-x-3 gap-y-0.5 flex-wrap text-[12px] sm:text-[12.5px] font-medium"
           style={{ background: '#2c1810', color: '#f2ead8' }}
         >
-          <span>You&rsquo;re exploring the demo board — everything works, nothing is saved to an account.</span>
+          <span>You&rsquo;re exploring the demo board. Everything works, nothing is saved to an account.</span>
           <Link href="/auth/signup" className="underline underline-offset-2 hover:opacity-80 shrink-0" style={{ color: '#c9a84c' }}>
             Sign up free
           </Link>
           <button onClick={() => setDemoBanner(false)} aria-label="Dismiss demo banner"
-            className="absolute right-3 opacity-60 hover:opacity-100">
+            className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5 opacity-60 hover:opacity-100">
             <X size={13} />
           </button>
         </div>
@@ -194,26 +205,28 @@ export default function BoardPage() {
       <div className="relative mx-auto" style={{ maxWidth: 1280 }}>
 
         {/* ── Top bar ── */}
-        <div className="flex items-center justify-between" style={{ padding: '18px 42px 0' }}>
-          <div className="flex items-center gap-5">
-            <Link href={isDemo ? '/' : '/boards'} className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
-              TravelClick<span style={{ color: '#c94040' }}>.</span>
+        <div className="flex items-center justify-between gap-3" style={{ padding: '18px var(--gutter) 0' }}>
+          <div className="flex items-center gap-5 min-w-0">
+            <Link href={isDemo ? '/' : '/boards'} aria-label="TravelClick boards" className="font-display shrink-0" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
+              <span className="sm:hidden"><PostmarkMark size={32} /></span>
+              <span className="hidden sm:inline"><Logo fontSize={19} /></span>
             </Link>
-            <span style={{ fontSize: 12, color: 'rgba(44,24,16,.45)' }}>
+            <span className="hidden sm:inline" style={{ fontSize: 12, color: 'rgba(44,24,16,.68)' }}>
               <Link href={isDemo ? '/' : '/boards'} className="hover:text-[#2c1810] transition-colors">Boards</Link>
               &nbsp;&nbsp;/&nbsp;&nbsp;
               <span style={{ color: '#2c1810', fontWeight: 500 }}>{trip.destination}</span>
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {!isDemo && <ShareBoard tripId={tripId} destination={trip.destination} />}
             <div className="flex gap-1 p-1 rounded-full" style={{ background: 'rgba(255,254,249,.7)', boxShadow: '0 2px 8px rgba(44,24,16,.12)' }}>
-              <span className="px-4 py-[7px] rounded-full font-semibold" style={{ background: '#2c1810', color: '#f2ead8', fontSize: 11.5 }}>
+              <span className="px-3 sm:px-4 py-[7px] rounded-full font-semibold" style={{ background: '#2c1810', color: '#f2ead8', fontSize: 11.5 }}>
                 Moodboard
               </span>
               <button
                 onClick={goItinerary}
-                className="px-4 py-[7px] rounded-full font-semibold transition-colors hover:text-[#c94040]"
-                style={{ color: 'rgba(44,24,16,.6)', fontSize: 11.5 }}
+                className="px-3 sm:px-4 py-[7px] rounded-full font-semibold transition-colors hover:text-[#c94040]"
+                style={{ color: 'rgba(44,24,16,.68)', fontSize: 11.5 }}
               >
                 Itinerary ✦
               </button>
@@ -235,7 +248,7 @@ export default function BoardPage() {
         </div>
 
         {/* ── Masthead ── */}
-        <div className="relative flex items-end justify-between flex-wrap gap-6" style={{ padding: '24px 42px 0' }}>
+        <div className="relative flex items-end justify-between flex-wrap gap-6" style={{ padding: '24px var(--gutter) 0' }}>
           <div className="relative z-[2]">
             <div className="flex items-center gap-3 mb-1.5">
               <span className="uppercase font-semibold" style={{ fontSize: 11, letterSpacing: '.22em', color: '#c94040' }}>
@@ -243,23 +256,23 @@ export default function BoardPage() {
               </span>
               <span style={{ height: 1, width: 48, background: 'rgba(201,64,64,.4)' }} />
               {status.kind === 'upcoming' && (
-                <span className="font-hand" style={{ fontSize: 17, color: 'rgba(44,24,16,.55)', transform: 'rotate(-2deg)' }}>
+                <span className="font-hand" style={{ fontSize: 17, color: 'rgba(44,24,16,.68)', transform: 'rotate(-2deg)' }}>
                   {status.label}!
                 </span>
               )}
             </div>
             <h1
               className="font-display m-0 italic"
-              style={{ fontWeight: 800, fontSize: 76, lineHeight: 0.95, color: '#2c1810', letterSpacing: '-.03em' }}
+              style={{ fontWeight: 800, fontSize: 'clamp(52px, 14vw, 76px)', lineHeight: 0.95, color: '#2c1810', letterSpacing: '-.03em' }}
             >
               {trip.destination}
             </h1>
-            <div className="flex flex-wrap items-center" style={{ gap: 18, marginTop: 12, fontSize: 13, color: 'rgba(44,24,16,.6)' }}>
+            <div className="flex flex-wrap items-center" style={{ gap: 18, marginTop: 12, fontSize: 13, color: 'rgba(44,24,16,.68)' }}>
               <span>{dateRange}</span>
-              <span style={{ color: 'rgba(44,24,16,.25)' }}>·</span>
+              <span style={{ color: 'rgba(44,24,16,.68)' }}>·</span>
               <span>{trip.paxCount} traveller{trip.paxCount > 1 ? 's' : ''}</span>
-              {interests && (<><span style={{ color: 'rgba(44,24,16,.25)' }}>·</span><span>{interests}</span></>)}
-              <span style={{ color: 'rgba(44,24,16,.25)' }}>·</span>
+              {interests && (<><span style={{ color: 'rgba(44,24,16,.68)' }}>·</span><span>{interests}</span></>)}
+              <span style={{ color: 'rgba(44,24,16,.68)' }}>·</span>
               <span style={{ color: '#6b8f5e', fontWeight: 600 }}>{cards.length} place{cards.length === 1 ? '' : 's'} pinned</span>
             </div>
           </div>
@@ -278,16 +291,16 @@ export default function BoardPage() {
             style={{ filter: 'drop-shadow(0 14px 24px rgba(44,24,16,.28))', transform: 'rotate(1.5deg)', marginBottom: 6 }}
           >
             <div style={{ background: '#fffef9', borderRadius: '10px 0 0 10px', padding: '16px 22px', borderRight: '2px dashed rgba(44,24,16,.2)' }}>
-              <div style={{ fontSize: 9, letterSpacing: '.2em', color: 'rgba(44,24,16,.45)', fontWeight: 700 }}>
+              <div style={{ fontSize: 9, letterSpacing: '.2em', color: 'rgba(44,24,16,.68)', fontWeight: 700 }}>
                 BOARDING · TRAVELCLICK AIR
               </div>
               <div className="flex items-center gap-3" style={{ marginTop: 6 }}>
-                <span style={{ color: '#c94040', fontSize: 15 }}>✈</span>
+                <Plane size={16} color="#c94040" aria-hidden="true" />
                 <span className="font-display" style={{ fontWeight: 800, fontSize: 26, color: '#2c1810' }}>
                   {trip.destination.toUpperCase()}
                 </span>
               </div>
-              <div style={{ marginTop: 5, fontSize: 10.5, color: 'rgba(44,24,16,.55)' }}>
+              <div style={{ marginTop: 5, fontSize: 10.5, color: 'rgba(44,24,16,.68)' }}>
                 {dateRange} · {trip.paxCount} PAX
               </div>
             </div>
@@ -299,7 +312,7 @@ export default function BoardPage() {
         </div>
 
         {/* ── Luggage-tag filters ── */}
-        <div className="relative z-[3] flex items-center flex-wrap" style={{ gap: 10, padding: '20px 42px 6px' }}>
+        <div className="relative z-[3] flex items-center flex-wrap" style={{ gap: 10, padding: '20px var(--gutter) 6px' }}>
           <button
             className="luggage-tag"
             onClick={() => setActiveFilter(null)}
@@ -326,14 +339,15 @@ export default function BoardPage() {
               </button>
             )
           })}
-          <span className="ml-auto font-hand hidden sm:block" style={{ fontSize: 18, color: 'rgba(44,24,16,.5)', transform: 'rotate(-1deg)' }}>
+          <span className="ml-auto font-hand hidden sm:block" style={{ fontSize: 18, color: 'rgba(44,24,16,.68)', transform: 'rotate(-1deg)' }}>
             drag anything ✏️
           </span>
         </div>
 
         {/* ── Collage ── */}
-        <div className="overflow-x-auto" style={{ padding: '18px 42px 0' }}>
+        <div className={compact ? '' : 'overflow-x-auto'} style={{ padding: '18px var(--gutter) 0' }}>
           <CollageBoard
+            compact={compact}
             trip={trip}
             cards={cards}
             notes={notes}
@@ -345,15 +359,15 @@ export default function BoardPage() {
 
         {/* ── Bottom action strip ── */}
         <div
-          className="sticky bottom-0 z-40 flex items-center justify-between flex-wrap gap-3"
-          style={{ padding: '22px 42px 18px', background: 'linear-gradient(180deg, transparent, rgba(233,223,205,.95) 45%)' }}
+          className="sticky bottom-0 z-40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3"
+          style={{ padding: compact ? '18px 0 calc(12px + env(safe-area-inset-bottom))' : '22px var(--gutter) 18px', background: 'linear-gradient(180deg, transparent, rgba(233,223,205,.97) 35%)' }}
         >
-          <div className="flex flex-wrap" style={{ gap: 8 }}>
+          <div className={compact ? 'swipe-row' : 'flex flex-wrap'} style={{ gap: 8, padding: compact ? '4px var(--gutter)' : 0 }}>
             <button onClick={() => setPinOpen(true)} className="pill-coral pill-lift flex items-center gap-2 rounded-full font-semibold" style={{ padding: '10px 18px', fontSize: 12.5 }}>
-              🔗 Pin a link
+              <Link2 size={14} aria-hidden="true" /> Add a place
             </button>
             <button onClick={handleAddNote} className="pill-paper pill-lift flex items-center gap-2 rounded-full" style={{ padding: '10px 16px', fontSize: 12.5 }}>
-              📝 Note
+              <StickyNote size={14} aria-hidden="true" /> Note
             </button>
             {toolPills.map((t) => (
               <button
@@ -362,15 +376,15 @@ export default function BoardPage() {
                 className="pill-paper pill-lift flex items-center gap-2 rounded-full"
                 style={{ padding: '10px 16px', fontSize: 12.5 }}
               >
-                {t.label}
+                <t.Icon size={14} aria-hidden="true" /> {t.label}
               </button>
             ))}
           </div>
           <button
             onClick={goItinerary}
             disabled={generating}
-            className="pill-ink pill-lift flex items-center gap-2 font-semibold disabled:opacity-60"
-            style={{ padding: '14px 28px', borderRadius: 12, fontSize: 14.5 }}
+            className="pill-ink pill-lift flex items-center justify-center gap-2 font-semibold disabled:opacity-60"
+            style={{ padding: '14px 28px', borderRadius: 12, fontSize: 14.5, margin: compact ? '0 var(--gutter)' : 0 }}
           >
             {itinerary ? 'Open my binder ✦' : 'Assemble my binder ✦'}
           </button>
@@ -379,6 +393,8 @@ export default function BoardPage() {
 
       {/* ── Pin-a-link modal ── */}
       <LinkExtractor tripId={tripId} open={pinOpen} onClose={() => setPinOpen(false)} />
+
+      <PlanSheet tripId={tripId} open={planOpen} onClose={() => setPlanOpen(false)} onPlan={planTrip} />
 
       {/* ── Binder generation overlay ── */}
       <GenerationOverlay show={generating} />
@@ -418,7 +434,7 @@ export default function BoardPage() {
                   onClick={() => setActiveTool(null)}
                   aria-label="Close"
                   className="transition-colors hover:text-[#c94040]"
-                  style={{ fontSize: 18, color: 'rgba(44,24,16,.4)' }}
+                  style={{ fontSize: 18, color: 'rgba(44,24,16,.68)' }}
                 >
                   ×
                 </button>
