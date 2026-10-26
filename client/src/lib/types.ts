@@ -91,6 +91,22 @@ export interface AccommodationSuggestion {
   imageUrl?: string
 }
 
+/** Somewhere the travellers have booked to sleep; nights run checkIn → checkOut (morning) */
+export interface TripStay {
+  id: string
+  name: string
+  area?: string // neighbourhood or nearest station
+  checkIn: string // YYYY-MM-DD
+  checkOut: string
+}
+
+/** Stays panel state per trip: AI picks plus the stays the travellers entered */
+export interface TripStays {
+  suggestions: AccommodationSuggestion[]
+  suggestedAt?: string
+  booked: TripStay[]
+}
+
 export interface ItineraryTimeBlock {
   time: string
   activity: string

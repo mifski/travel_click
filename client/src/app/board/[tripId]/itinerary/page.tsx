@@ -101,6 +101,7 @@ export default function ItineraryPage() {
         body: JSON.stringify({
           trip, savedPlaces, instructions: customInstructions,
           flights: useTripStore.getState().budgets[tripId]?.flights ?? [],
+          stays: useTripStore.getState().stays[tripId]?.booked ?? [],
         }),
       })
 

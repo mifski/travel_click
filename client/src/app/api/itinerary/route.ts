@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import type { TripContext, GeneratedItinerary, ItineraryDay, TripPace, BookedFlight, TripDiscovery } from '@/lib/types'
+import type { TripContext, GeneratedItinerary, ItineraryDay, TripPace, BookedFlight, TripDiscovery, TripStay } from '@/lib/types'
 import { getDayCount } from '@/lib/utils'
 import { rateLimit, clamp } from '@/lib/api-guard'
 
@@ -130,6 +130,18 @@ export async function POST(req: NextRequest) {
     .map((f) => ({ ...f, flightNo: clamp(f.flightNo, 12), from: clamp(f.from, 40), to: clamp(f.to, 40) }))
   const flights = flightList
     .map((f) => `  • ${f.leg === 'return' ? 'Return' : f.leg === 'outbound' ? 'Outbound' : 'Flight'} ${clamp(f.flightNo, 12)} ${clamp(f.from, 40)} → ${clamp(f.to, 40)}: departs ${f.departAt.replace('T', ' ')}, arrives ${f.arriveAt.replace('T', ' ')} (local times)`)
+  const ISO = /^\d{4}-\d{2}-\d{2}$/
+  const stays: TripStay[] = (Array.isArray(body.stays) ? body.stays as TripStay[] : [])
+    .filter((s) => ISO.test(String(s?.checkIn)) && ISO.test(String(s?.checkOut)) && clamp(s?.name, 120).trim())
+    .slice(0, 12)
+    .map((s) => ({ id: String(s.id), name: clamp(s.name, 120), area: clamp(s.area, 80) || undefined, checkIn: s.checkIn, checkOut: s.checkOut }))
+    .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
+  const stayLabel = (s: TripStay) => `${s.name}${s.area ? ` (near ${s.area})` : ''}`
+  /** Where they wake up and where they sleep on a date; differ on a hotel-change day */
+  const staysOn = (date: string) => ({
+    from: stays.find((s) => s.checkIn < date && date <= s.checkOut),
+    to: stays.find((s) => s.checkIn <= date && date < s.checkOut),
+  })
   const pace: TripPace = (['slow', 'balanced', 'full'] as const).find((p) => p === trip.pace) ?? 'balanced'
   const dayStart = /^\d{1,2}:\d{2}$/.test(trip.dayStart ?? '') ? trip.dayStart : '09:00'
   const discovery: TripDiscovery = ([0, 1, 2, 3, 4] as const).find((d) => d === trip.discovery) ?? 2
@@ -161,6 +173,10 @@ export async function POST(req: NextRequest) {
 - Pace: ${pace} — ${PACE_STOPS[pace]}. Days start around ${dayStart}.
 - Added places (not the saved ones): ${DISCOVERY_MIX[discovery]}
 ${homeBase ? `- Home base: ${homeBase}. Every day starts and ends here (except arrival and departure legs). First block of the day is travel from the base, last block is the way back, with real travel times. Keep each day's stops within easy reach of the base or along one line out and back.
+` : ''}${stays.length ? `
+WHERE THEY'RE STAYING (fixed; each day starts and ends at that night's stay, routes from its nearest station):
+${stays.map((s) => `  • ${s.checkIn} to ${s.checkOut}: ${stayLabel(s)}`).join('\n')}
+- Plan each day's stops around that night's stay; on a day they change hotels, include check-out, the move (luggage: station lockers or same-day hotel forwarding) and check-in
 ` : ''}${flights.length ? `
 BOOKED FLIGHTS (fixed, plan around them):
 ${flights.join('\n')}
@@ -217,6 +233,16 @@ Return ONLY valid JSON:
     ].filter(Boolean).join('')
   }
 
+  function stayNote(date: string): string {
+    const { from, to } = staysOn(date)
+    if (!from && !to) return ''
+    if (from && to && from.id !== to.id) {
+      return `\n- HOTEL CHANGE: check out of ${stayLabel(from)}, move to ${stayLabel(to)}. Include check-out, the move (say how luggage gets there) and check-in; keep the day light`
+    }
+    const base = (to ?? from)!
+    return `\n- STAYING AT: ${stayLabel(base)}. Start the day from here and end back here; name the nearest station and the line for the first and last legs`
+  }
+
   // Step 2: one day, in full detail, following its slot in the plan
   function dayPrompt(d: PlanDay, plan: Plan): string {
     const others = plan.days.filter((x) => x.day !== d.day).map((x) => `Day ${x.day}: ${(x.stops ?? []).join(', ')}`).join('\n')
@@ -224,7 +250,7 @@ Return ONLY valid JSON:
 
 ${tripBrief}
 THIS DAY'S PLAN:
-- Date: ${d.date}${flightNote(d.date)}
+- Date: ${d.date}${flightNote(d.date)}${stayNote(d.date)}
 - Theme: ${d.theme}${d.area ? `\n- Area: ${d.area}` : ''}
 - Anchor: ${d.anchor ?? 'pick the one thing that matters most'}
 - Stops, in order: ${(d.stops ?? []).join(', ') || 'choose fitting local spots'}
