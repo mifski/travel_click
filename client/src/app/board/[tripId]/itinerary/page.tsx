@@ -9,8 +9,11 @@ import { ItineraryBinder, DayPage, DAY_COLORS } from '@/components/Itinerary/Iti
 import { GenerationOverlay } from '@/components/UI/GenerationOverlay'
 import { toast } from '@/components/UI/Toaster'
 import { DEMO_TRIP_ID, seedDemo } from '@/lib/demo-data'
-import type { GeneratedItinerary } from '@/lib/types'
+import type { GeneratedItinerary, RealityReport, TripContext } from '@/lib/types'
+import { BookByList, PaceControl } from '@/components/Itinerary/RealityPanel'
+import { EMPTY_MARKS } from '@/lib/reality'
 import { formatDateRange } from '@/lib/utils'
+import { Printer, RotateCw } from 'lucide-react'
 
 const cream = (a: number) => `rgba(242,234,216,${a})`
 
@@ -29,6 +32,10 @@ export default function ItineraryPage() {
   const cards = useTripStore((s) => s.cards[tripId]) ?? []
   const itinerary = useTripStore((s) => s.itineraries[tripId] ?? null)
   const saveItinerary = useTripStore((s) => s.saveItinerary)
+  const report = useTripStore((s) => s.realityChecks[tripId])
+  const marks = useTripStore((s) => s.realityMarks[tripId]) ?? EMPTY_MARKS
+  const saveRealityCheck = useTripStore((s) => s.saveRealityCheck)
+  const updateTrip = useTripStore((s) => s.updateTrip)
   const { user, profile } = useAuth()
 
   const [mounted, setMounted] = useState(false)
@@ -36,6 +43,7 @@ export default function ItineraryPage() {
   const [refining, setRefining] = useState(false)
   const [error, setError] = useState('')
   const [activeDay, setActiveDay] = useState(0)
+  const [checking, setChecking] = useState(false)
 
   const isDemo = tripId === DEMO_TRIP_ID
 
@@ -50,10 +58,31 @@ export default function ItineraryPage() {
     if (!mounted) return
     if (!trip && !isDemo) { router.replace('/boards'); return }
     if (trip && !itinerary && !loading) generate()
+    else if (trip && itinerary && !report && !checking) void realityCheck(trip, itinerary)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, trip])
 
-  async function generate(customInstructions?: string) {
+  /** Second pass after every generate/refine — the stamp stays "Checking…" until it lands */
+  async function realityCheck(t: TripContext, it: GeneratedItinerary) {
+    setChecking(true)
+    try {
+      const res = await fetch('/api/reality-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trip: t, itinerary: it }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Reality Check failed')
+      saveRealityCheck(data.report as RealityReport)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Reality Check failed')
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  async function generate(customInstructions?: string, tripOverride?: TripContext) {
+    const trip = tripOverride ?? useTripStore.getState().trips.find((t) => t.id === tripId)
     if (!trip) return
     const isRefine = !!customInstructions
     if (isRefine) setRefining(true)
@@ -68,14 +97,18 @@ export default function ItineraryPage() {
       const res = await fetch('/api/itinerary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trip, savedPlaces, instructions: customInstructions }),
+        body: JSON.stringify({
+          trip, savedPlaces, instructions: customInstructions,
+          flights: useTripStore.getState().budgets[tripId]?.flights ?? [],
+        }),
       })
 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to generate itinerary')
 
       saveItinerary(data.itinerary as GeneratedItinerary)
-      if (isRefine) toast.success('Refined — your binder is updated ✦')
+      if (isRefine) toast.success('Refined, your binder is updated ✦')
+      void realityCheck(trip, data.itinerary as GeneratedItinerary)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to generate itinerary'
       if (isRefine) toast.error(msg)
@@ -100,7 +133,7 @@ export default function ItineraryPage() {
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-dvh"
       style={{
         background: '#201209',
         backgroundImage:
@@ -130,19 +163,19 @@ export default function ItineraryPage() {
               <>
                 <button
                   onClick={() => window.print()}
-                  className="rounded-full transition-all hover:border-[#c9a84c] hover:text-[#c9a84c]"
+                  className="rounded-full transition-all hover:border-[#c9a84c] hover:text-[#c9a84c] inline-flex items-center gap-1.5"
                   style={{ padding: '7px 16px', border: `1px solid ${cream(0.25)}`, color: cream(0.7), fontSize: 11.5 }}
                 >
-                  🖨 Print / PDF
+                  <Printer size={13} aria-hidden="true" /> Print / PDF
                 </button>
                 <button
                   onClick={() => generate()}
                   disabled={loading || refining}
                   title="Regenerate the whole itinerary"
-                  className="rounded-full transition-all hover:border-[#c9a84c] hover:text-[#c9a84c] disabled:opacity-40"
+                  className="rounded-full transition-all hover:border-[#c9a84c] hover:text-[#c9a84c] disabled:opacity-40 inline-flex items-center gap-1.5"
                   style={{ padding: '7px 16px', border: `1px solid ${cream(0.25)}`, color: cream(0.7), fontSize: 11.5 }}
                 >
-                  ↻ Regenerate
+                  <RotateCw size={13} aria-hidden="true" /> Regenerate
                 </button>
               </>
             )}
@@ -173,6 +206,18 @@ export default function ItineraryPage() {
               {ghost}
             </span>
           </div>
+          {itinerary && (
+            <PaceControl
+              key={`${trip.pace}-${trip.dayStart}`}
+              pace={trip.pace ?? 'balanced'}
+              dayStart={trip.dayStart ?? '09:00'}
+              disabled={loading || refining}
+              onApply={(pace, dayStart) => {
+                updateTrip(trip.id, { pace, dayStart })
+                void generate(undefined, { ...trip, pace, dayStart })
+              }}
+            />
+          )}
           {itinerary?.totalEstimatedCost && (
             <div className="flex flex-col items-end gap-1.5" style={{ paddingBottom: 8 }}>
               <span style={{ fontSize: 12, color: cream(0.55) }}>Trip total (est.)</span>
@@ -187,7 +232,7 @@ export default function ItineraryPage() {
         {error && !loading && (
           <div className="flex flex-col items-center gap-5" style={{ padding: '60px 40px' }}>
             <p className="font-hand text-center" style={{ fontSize: 24, color: cream(0.7), maxWidth: 420 }}>
-              the binder didn&rsquo;t make it off the press — {error}
+              the binder didn&rsquo;t make it off the press: {error}
             </p>
             <button
               onClick={() => generate()}
@@ -209,7 +254,13 @@ export default function ItineraryPage() {
               onDayChange={setActiveDay}
               onRefine={(instructions) => generate(`For day ${activeDay + 1}: ${instructions}`)}
               refining={refining}
+              report={report}
+              marks={marks}
+              checking={checking}
+              onRecheck={() => void realityCheck(trip, itinerary)}
             />
+
+            {report && <BookByList tripId={tripId} report={report} marks={marks} destination={trip.destination} />}
 
             {/* General tips */}
             {itinerary.generalTips?.length > 0 && (
@@ -239,7 +290,7 @@ export default function ItineraryPage() {
       {itinerary && (
         <div className="print-only px-2" style={{ background: 'white', color: '#1a0f00' }}>
           <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: 'Georgia, serif' }}>
-            {itinerary.destination} — Trip Itinerary
+            {itinerary.destination}: Trip Itinerary
           </h1>
           <p className="text-sm text-stone-600 mb-1">
             {trip.startDate} → {trip.endDate} · {trip.paxCount} traveller{trip.paxCount > 1 ? 's' : ''}
@@ -259,7 +310,7 @@ export default function ItineraryPage() {
               ))}
             </div>
           )}
-          <p className="text-[10px] text-stone-400 mt-6">Generated with TravelClick ✈️</p>
+          <p className="text-[10px] text-stone-400 mt-6">Generated with TravelClick</p>
         </div>
       )}
     </div>

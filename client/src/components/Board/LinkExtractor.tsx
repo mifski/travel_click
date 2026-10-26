@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTripStore } from '@/lib/store'
 import { toast } from '@/components/UI/Toaster'
+import { PlaceSearch } from './PlaceSearch'
 
 const EXTRACT_STEPS = [
   'Fetching the video…',
@@ -39,6 +40,8 @@ function PinDialog({ tripId, onClose }: { tripId: string; onClose: () => void })
   const [extracting, setExtracting] = useState(false)
   const [statusLine, setStatusLine] = useState(EXTRACT_STEPS[0])
   const [error, setError] = useState('')
+  const [mode, setMode] = useState<'search' | 'link'>('search')
+  const trip = useTripStore((s) => s.trips.find((t) => t.id === tripId))
   const addCard = useTripStore((s) => s.addCard)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
@@ -71,7 +74,7 @@ function PinDialog({ tripId, onClose }: { tripId: string; onClose: () => void })
       const res = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim(), manualCaption: caption || undefined, tripId }),
+        body: JSON.stringify({ url: url.trim(), manualCaption: caption || undefined, tripId, destination: trip?.destination, country: trip?.country }),
       })
       const data = await res.json()
       clearInterval(cycle)
@@ -90,13 +93,13 @@ function PinDialog({ tripId, onClose }: { tripId: string; onClose: () => void })
       }
 
       // Land the last two beats, then pin for real
-      setStatusLine(`Found ${cards.length === 1 ? `one: ${cards[0].title}` : `${cards.length} places`} 📍`)
+      setStatusLine(`Found ${cards.length === 1 ? `one: ${cards[0].title}` : `${cards.length} places`}`)
       later(() => setStatusLine('Pinning to your board…'), 800)
       later(() => {
         for (const card of cards) addCard(tripId, card)
         setExtracting(false)
         onClose()
-        toast.success(`Pinned to your board 📌`)
+        toast.success('Pinned to your board')
       }, 1400)
     } catch {
       clearInterval(cycle)
@@ -132,20 +135,39 @@ function PinDialog({ tripId, onClose }: { tripId: string; onClose: () => void })
       >
         <div className="flex items-baseline justify-between">
           <span className="font-display" style={{ fontWeight: 800, fontSize: 22, color: '#2c1810' }}>
-            Pin a link 🔗
+            Pin a place
           </span>
           <button
             onClick={() => { if (!extracting) onClose() }}
             aria-label="Close"
             className="transition-colors hover:text-[#c94040]"
-            style={{ fontSize: 16, color: 'rgba(44,24,16,.4)' }}
+            style={{ fontSize: 16, color: 'rgba(44,24,16,.68)' }}
           >
             ×
           </button>
         </div>
 
-        <p style={{ margin: '6px 0 16px', fontSize: 12.5, color: 'rgba(44,24,16,.55)', lineHeight: 1.5 }}>
-          Paste a TikTok, YouTube, IG or article link — we watch it and extract the places.
+        <div role="tablist" aria-label="How to add" className="flex gap-1.5" style={{ margin: '12px 0 4px' }}>
+          {(['search', 'link'] as const).map((m) => (
+            <button
+              key={m}
+              role="tab"
+              aria-selected={mode === m}
+              disabled={extracting}
+              onClick={() => { setMode(m); setError('') }}
+              className={mode === m ? 'pill-ink rounded-full font-semibold' : 'rounded-full transition-colors hover:text-[#2c1810]'}
+              style={{ padding: '6px 14px', fontSize: 12, ...(mode === m ? {} : { color: '#6b4a32', border: '1px solid rgba(44,24,16,.18)' }) }}
+            >
+              {m === 'search' ? 'Search a place' : 'Paste a link'}
+            </button>
+          ))}
+        </div>
+
+        {mode === 'search' && <div style={{ marginTop: 12 }}><PlaceSearch tripId={tripId} /></div>}
+
+        {mode === 'link' && (<>
+        <p style={{ margin: '6px 0 16px', fontSize: 12.5, color: 'rgba(44,24,16,.68)', lineHeight: 1.5 }}>
+          Paste a TikTok, YouTube, IG or article link. We watch it and extract the places.
         </p>
 
         <input
@@ -174,7 +196,7 @@ function PinDialog({ tripId, onClose }: { tripId: string; onClose: () => void })
               type="button"
               onClick={() => setShowCaption((v) => !v)}
               className="font-hand transition-colors hover:text-[#a86030]"
-              style={{ marginTop: 8, fontSize: 16, color: 'rgba(44,24,16,.45)' }}
+              style={{ marginTop: 8, fontSize: 16, color: 'rgba(44,24,16,.68)' }}
             >
               {showCaption ? '− hide caption' : '+ add a caption (helps the AI)'}
             </button>
@@ -230,7 +252,7 @@ function PinDialog({ tripId, onClose }: { tripId: string; onClose: () => void })
           <button
             onClick={() => { if (!extracting) onClose() }}
             className="rounded-full transition-colors hover:text-[#2c1810]"
-            style={{ padding: '10px 18px', color: 'rgba(44,24,16,.55)', fontSize: 12.5 }}
+            style={{ padding: '10px 18px', color: 'rgba(44,24,16,.68)', fontSize: 12.5 }}
           >
             Cancel
           </button>
@@ -243,6 +265,7 @@ function PinDialog({ tripId, onClose }: { tripId: string; onClose: () => void })
             {extracting ? 'Extracting…' : '✦ Extract places'}
           </button>
         </div>
+        </>)}
       </motion.div>
     </motion.div>
   )

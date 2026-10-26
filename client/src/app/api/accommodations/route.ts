@@ -28,9 +28,9 @@ export async function POST(req: NextRequest) {
   }
 
   const priceDesc: Record<PriceRange, string> = {
-    budget: 'budget-friendly under $80/night',
-    mid: 'mid-range $80-250/night',
-    luxury: 'luxury above $250/night',
+    budget: 'budget-friendly under S$110/night',
+    mid: 'mid-range S$110-340/night',
+    luxury: 'luxury above S$340/night',
   }
 
   const ageContext = trip.ageRanges.length
@@ -45,6 +45,8 @@ Travellers: ${trip.paxCount} people. ${ageContext}
 Trip goals: ${trip.objectives.join(', ')}
 Budget: ${priceDesc[trip.priceRange]}
 
+All prices are in Singapore dollars, written as S$ (e.g. "S$45").
+
 Return ONLY a valid JSON array (no markdown, no explanation) with exactly 4 items in this format:
 [
   {
@@ -53,7 +55,7 @@ Return ONLY a valid JSON array (no markdown, no explanation) with exactly 4 item
     "description": "2-sentence description",
     "whyItFits": "1-2 sentences on why it suits this specific trip profile",
     "priceTier": "budget|mid|luxury",
-    "estimatedPricePerNight": "$XX-$XX",
+    "estimatedPricePerNight": "S$XX-S$XX",
     "highlights": ["highlight1", "highlight2", "highlight3"]
   }
 ]

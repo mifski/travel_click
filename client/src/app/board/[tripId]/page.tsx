@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import { X } from 'lucide-react'
+import { X, BedDouble, Stamp, Luggage, Wallet, Link2, StickyNote, Plane, type LucideIcon } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useTripStore } from '@/lib/store'
 import { CollageBoard } from '@/components/Board/CollageBoard'
@@ -113,12 +113,12 @@ export default function BoardPage() {
   function handleAddNote() {
     const note = addNote(tripId)
     setFreshNoteId(note.id)
-    toast.info('Sticky added — drag it anywhere')
+    toast.info('Sticky added. Drag it anywhere')
   }
 
   async function goItinerary() {
     if (itinerary) { router.push(`/board/${tripId}/itinerary`); return }
-    if (cards.length === 0) { toast.info('Pin a few places first ✏️'); return }
+    if (cards.length === 0) { toast.info('Pin a few places first'); return }
     if (generating || !trip) return
     setGenerating(true)
 
@@ -143,15 +143,15 @@ export default function BoardPage() {
     }
   }
 
-  const toolPills: { key: Exclude<ToolTab, null>; label: string }[] = [
-    { key: 'stays',   label: '🛏 Stays' },
-    { key: 'brief',   label: '🛂 Brief' },
-    { key: 'packing', label: '🧳 Packing' },
-    { key: 'budget',  label: '💰 Budget' },
+  const toolPills: { key: Exclude<ToolTab, null>; label: string; Icon: LucideIcon }[] = [
+    { key: 'stays',   label: 'Stays',   Icon: BedDouble },
+    { key: 'brief',   label: 'Brief',   Icon: Stamp },
+    { key: 'packing', label: 'Packing', Icon: Luggage },
+    { key: 'budget',  label: 'Budget',  Icon: Wallet },
   ]
 
   return (
-    <div className="scrapbook-bg relative min-h-screen overflow-hidden">
+    <div className="scrapbook-bg relative min-h-dvh overflow-hidden">
 
       {/* ── Decorative layers ── */}
       <div
@@ -180,7 +180,7 @@ export default function BoardPage() {
           className="relative z-10 px-4 py-2 flex items-center justify-center gap-3 text-[12.5px] font-medium"
           style={{ background: '#2c1810', color: '#f2ead8' }}
         >
-          <span>You&rsquo;re exploring the demo board — everything works, nothing is saved to an account.</span>
+          <span>You&rsquo;re exploring the demo board. Everything works, nothing is saved to an account.</span>
           <Link href="/auth/signup" className="underline underline-offset-2 hover:opacity-80 shrink-0" style={{ color: '#c9a84c' }}>
             Sign up free
           </Link>
@@ -199,7 +199,7 @@ export default function BoardPage() {
             <Link href={isDemo ? '/' : '/boards'} className="font-display" style={{ fontWeight: 800, fontSize: 19, color: '#2c1810', letterSpacing: '-.02em' }}>
               TravelClick<span style={{ color: '#c94040' }}>.</span>
             </Link>
-            <span style={{ fontSize: 12, color: 'rgba(44,24,16,.45)' }}>
+            <span style={{ fontSize: 12, color: 'rgba(44,24,16,.68)' }}>
               <Link href={isDemo ? '/' : '/boards'} className="hover:text-[#2c1810] transition-colors">Boards</Link>
               &nbsp;&nbsp;/&nbsp;&nbsp;
               <span style={{ color: '#2c1810', fontWeight: 500 }}>{trip.destination}</span>
@@ -213,7 +213,7 @@ export default function BoardPage() {
               <button
                 onClick={goItinerary}
                 className="px-4 py-[7px] rounded-full font-semibold transition-colors hover:text-[#c94040]"
-                style={{ color: 'rgba(44,24,16,.6)', fontSize: 11.5 }}
+                style={{ color: 'rgba(44,24,16,.68)', fontSize: 11.5 }}
               >
                 Itinerary ✦
               </button>
@@ -243,7 +243,7 @@ export default function BoardPage() {
               </span>
               <span style={{ height: 1, width: 48, background: 'rgba(201,64,64,.4)' }} />
               {status.kind === 'upcoming' && (
-                <span className="font-hand" style={{ fontSize: 17, color: 'rgba(44,24,16,.55)', transform: 'rotate(-2deg)' }}>
+                <span className="font-hand" style={{ fontSize: 17, color: 'rgba(44,24,16,.68)', transform: 'rotate(-2deg)' }}>
                   {status.label}!
                 </span>
               )}
@@ -254,12 +254,12 @@ export default function BoardPage() {
             >
               {trip.destination}
             </h1>
-            <div className="flex flex-wrap items-center" style={{ gap: 18, marginTop: 12, fontSize: 13, color: 'rgba(44,24,16,.6)' }}>
+            <div className="flex flex-wrap items-center" style={{ gap: 18, marginTop: 12, fontSize: 13, color: 'rgba(44,24,16,.68)' }}>
               <span>{dateRange}</span>
-              <span style={{ color: 'rgba(44,24,16,.25)' }}>·</span>
+              <span style={{ color: 'rgba(44,24,16,.68)' }}>·</span>
               <span>{trip.paxCount} traveller{trip.paxCount > 1 ? 's' : ''}</span>
-              {interests && (<><span style={{ color: 'rgba(44,24,16,.25)' }}>·</span><span>{interests}</span></>)}
-              <span style={{ color: 'rgba(44,24,16,.25)' }}>·</span>
+              {interests && (<><span style={{ color: 'rgba(44,24,16,.68)' }}>·</span><span>{interests}</span></>)}
+              <span style={{ color: 'rgba(44,24,16,.68)' }}>·</span>
               <span style={{ color: '#6b8f5e', fontWeight: 600 }}>{cards.length} place{cards.length === 1 ? '' : 's'} pinned</span>
             </div>
           </div>
@@ -278,16 +278,16 @@ export default function BoardPage() {
             style={{ filter: 'drop-shadow(0 14px 24px rgba(44,24,16,.28))', transform: 'rotate(1.5deg)', marginBottom: 6 }}
           >
             <div style={{ background: '#fffef9', borderRadius: '10px 0 0 10px', padding: '16px 22px', borderRight: '2px dashed rgba(44,24,16,.2)' }}>
-              <div style={{ fontSize: 9, letterSpacing: '.2em', color: 'rgba(44,24,16,.45)', fontWeight: 700 }}>
+              <div style={{ fontSize: 9, letterSpacing: '.2em', color: 'rgba(44,24,16,.68)', fontWeight: 700 }}>
                 BOARDING · TRAVELCLICK AIR
               </div>
               <div className="flex items-center gap-3" style={{ marginTop: 6 }}>
-                <span style={{ color: '#c94040', fontSize: 15 }}>✈</span>
+                <Plane size={16} color="#c94040" aria-hidden="true" />
                 <span className="font-display" style={{ fontWeight: 800, fontSize: 26, color: '#2c1810' }}>
                   {trip.destination.toUpperCase()}
                 </span>
               </div>
-              <div style={{ marginTop: 5, fontSize: 10.5, color: 'rgba(44,24,16,.55)' }}>
+              <div style={{ marginTop: 5, fontSize: 10.5, color: 'rgba(44,24,16,.68)' }}>
                 {dateRange} · {trip.paxCount} PAX
               </div>
             </div>
@@ -326,7 +326,7 @@ export default function BoardPage() {
               </button>
             )
           })}
-          <span className="ml-auto font-hand hidden sm:block" style={{ fontSize: 18, color: 'rgba(44,24,16,.5)', transform: 'rotate(-1deg)' }}>
+          <span className="ml-auto font-hand hidden sm:block" style={{ fontSize: 18, color: 'rgba(44,24,16,.68)', transform: 'rotate(-1deg)' }}>
             drag anything ✏️
           </span>
         </div>
@@ -350,10 +350,10 @@ export default function BoardPage() {
         >
           <div className="flex flex-wrap" style={{ gap: 8 }}>
             <button onClick={() => setPinOpen(true)} className="pill-coral pill-lift flex items-center gap-2 rounded-full font-semibold" style={{ padding: '10px 18px', fontSize: 12.5 }}>
-              🔗 Pin a link
+              <Link2 size={14} aria-hidden="true" /> Add a place
             </button>
             <button onClick={handleAddNote} className="pill-paper pill-lift flex items-center gap-2 rounded-full" style={{ padding: '10px 16px', fontSize: 12.5 }}>
-              📝 Note
+              <StickyNote size={14} aria-hidden="true" /> Note
             </button>
             {toolPills.map((t) => (
               <button
@@ -362,7 +362,7 @@ export default function BoardPage() {
                 className="pill-paper pill-lift flex items-center gap-2 rounded-full"
                 style={{ padding: '10px 16px', fontSize: 12.5 }}
               >
-                {t.label}
+                <t.Icon size={14} aria-hidden="true" /> {t.label}
               </button>
             ))}
           </div>
@@ -418,7 +418,7 @@ export default function BoardPage() {
                   onClick={() => setActiveTool(null)}
                   aria-label="Close"
                   className="transition-colors hover:text-[#c94040]"
-                  style={{ fontSize: 18, color: 'rgba(44,24,16,.4)' }}
+                  style={{ fontSize: 18, color: 'rgba(44,24,16,.68)' }}
                 >
                   ×
                 </button>

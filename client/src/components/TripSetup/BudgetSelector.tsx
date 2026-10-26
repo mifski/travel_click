@@ -2,16 +2,17 @@
 
 import { PriceRange, PRICE_RANGE_LABELS } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { Backpack, Plane, Gem, type LucideIcon } from 'lucide-react'
 
 interface Props {
   selected: PriceRange
   onChange: (range: PriceRange) => void
 }
 
-const BUDGET_ICONS: Record<PriceRange, string> = {
-  budget: '🎒',
-  mid: '✈️',
-  luxury: '💎',
+const BUDGET_ICONS: Record<PriceRange, LucideIcon> = {
+  budget: Backpack,
+  mid: Plane,
+  luxury: Gem,
 }
 
 const BUDGET_ACTIVE: Record<PriceRange, string> = {
@@ -26,6 +27,7 @@ export function BudgetSelector({ selected, onChange }: Props) {
       {(Object.keys(PRICE_RANGE_LABELS) as PriceRange[]).map((range) => {
         const { label, desc } = PRICE_RANGE_LABELS[range]
         const active = selected === range
+        const Icon = BUDGET_ICONS[range]
         return (
           <button
             key={range}
@@ -36,10 +38,10 @@ export function BudgetSelector({ selected, onChange }: Props) {
               'flex flex-col items-center gap-1 px-3 py-4 rounded-xl text-center border-2 transition-all',
               active
                 ? `${BUDGET_ACTIVE[range]} text-white shadow-md scale-[1.03]`
-                : 'bg-white border-amber-200 text-amber-900/60 hover:border-amber-400 hover:text-amber-900'
+                : 'bg-white border-amber-200 text-[#6b4a32] hover:border-amber-400 hover:text-amber-900'
             )}
           >
-            <span className="text-2xl">{BUDGET_ICONS[range]}</span>
+            <Icon size={24} strokeWidth={1.75} aria-hidden="true" />
             <span className="font-bold text-sm">{label}</span>
             <span className="text-xs opacity-75">{desc}</span>
           </button>

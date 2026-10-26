@@ -5,9 +5,11 @@ import { persist } from 'zustand/middleware'
 import type {
   TripContext, TravelCard, GeneratedItinerary, AgeRange, TripObjective, PriceRange,
   StickyNote, StickyColor, PackingList, TravelBrief, DestinationComparison, TripBudget,
+  RealityReport, RealityMarks, StubStatus,
 } from './types'
 import { generateId, generatePinPosition, randomInRange } from './utils'
 import { DEMO_TRIP_ID } from './demo-data'
+import { EMPTY_MARKS } from './reality'
 
 interface TripStore {
   trips: TripContext[]
@@ -17,6 +19,8 @@ interface TripStore {
   packingLists: Record<string, PackingList>
   briefs: Record<string, TravelBrief>
   budgets: Record<string, TripBudget>
+  realityChecks: Record<string, RealityReport>
+  realityMarks: Record<string, RealityMarks>
   lastComparison: DestinationComparison | null
   activeSetup: Partial<TripContext>
 
@@ -32,6 +36,7 @@ interface TripStore {
   hydrateCards: (tripId: string, cards: TravelCard[]) => void
   removeTripLocal: (tripId: string) => void
   addTrip: (trip: TripContext) => void
+  updateTrip: (tripId: string, patch: Partial<TripContext>) => void
 
   // Destination comparison + budget
   saveComparison: (cmp: DestinationComparison) => void
@@ -59,6 +64,12 @@ interface TripStore {
   // Itinerary
   saveItinerary: (itinerary: GeneratedItinerary) => void
   getItinerary: (tripId: string) => GeneratedItinerary | null
+
+  // Reality layer
+  saveRealityCheck: (report: RealityReport) => void
+  setStubStatus: (tripId: string, key: string, status: StubStatus) => void
+  markFactChecked: (tripId: string, key: string) => void
+  dismissFinding: (tripId: string, key: string) => void
 
   // Helpers
   getTrip: (tripId: string) => TripContext | null
@@ -111,6 +122,15 @@ async function syncCardDelete(tripId: string, cardId: string) {
   } catch { /* ignore */ }
 }
 
+function patchMarks<K extends keyof RealityMarks>(
+  s: TripStore, tripId: string, field: K, key: string, value: RealityMarks[K][string]
+): Partial<TripStore> {
+  const marks = s.realityMarks[tripId] ?? EMPTY_MARKS
+  return {
+    realityMarks: { ...s.realityMarks, [tripId]: { ...marks, [field]: { ...marks[field], [key]: value } } },
+  }
+}
+
 export const useTripStore = create<TripStore>()(
   persist(
     (set, get) => ({
@@ -121,6 +141,8 @@ export const useTripStore = create<TripStore>()(
       packingLists: {},
       briefs: {},
       budgets: {},
+      realityChecks: {},
+      realityMarks: {},
       lastComparison: null,
       activeSetup: { ...DEFAULT_SETUP },
 
@@ -171,6 +193,9 @@ export const useTripStore = create<TripStore>()(
       addTrip: (trip) =>
         set((s) => ({ trips: [...s.trips.filter((t) => t.id !== trip.id), trip] })),
 
+      updateTrip: (tripId, patch) =>
+        set((s) => ({ trips: s.trips.map((t) => (t.id === tripId ? { ...t, ...patch } : t)) })),
+
       saveComparison: (cmp) => set({ lastComparison: cmp }),
 
       setBudget: (tripId, budget) =>
@@ -206,6 +231,8 @@ export const useTripStore = create<TripStore>()(
             packingLists: omit(s.packingLists),
             briefs: omit(s.briefs),
             budgets: omit(s.budgets),
+            realityChecks: omit(s.realityChecks),
+            realityMarks: omit(s.realityMarks),
           }
         }),
 
@@ -315,6 +342,14 @@ export const useTripStore = create<TripStore>()(
         })),
 
       getItinerary: (tripId) => get().itineraries[tripId] ?? null,
+
+      saveRealityCheck: (report) =>
+        set((s) => ({ realityChecks: { ...s.realityChecks, [report.tripId]: report } })),
+
+      setStubStatus: (tripId, key, status) => set((s) => patchMarks(s, tripId, 'stubs', key, status)),
+      markFactChecked: (tripId, key) =>
+        set((s) => patchMarks(s, tripId, 'facts', key, new Date().toISOString().slice(0, 10))),
+      dismissFinding: (tripId, key) => set((s) => patchMarks(s, tripId, 'dismissed', key, true)),
 
       getTrip: (tripId) => get().trips.find((t) => t.id === tripId) ?? null,
 

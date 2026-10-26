@@ -27,7 +27,7 @@ export default function LandingPage() {
   }
 
   if (loading) return (
-    <div className="scrapbook-bg min-h-screen flex items-center justify-center">
+    <div className="scrapbook-bg min-h-dvh flex items-center justify-center">
       <div className="tc-spinner w-6 h-6" style={{ border: '2px solid rgba(201,64,64,.3)', borderTopColor: '#c94040' }} />
     </div>
   )
@@ -35,7 +35,7 @@ export default function LandingPage() {
   if (user) return null
 
   return (
-    <div className="scrapbook-bg min-h-screen flex flex-col">
+    <div className="scrapbook-bg min-h-dvh flex flex-col">
 
       {/* Nav */}
       <header className="px-6 sm:px-10 py-5 flex items-center justify-between sticky top-0 z-50"
@@ -44,7 +44,7 @@ export default function LandingPage() {
           TravelClick<span style={{ color: '#c94040' }}>.</span>
         </span>
         <div className="flex items-center gap-3">
-          <Link href="/auth/login" className="text-sm font-medium px-4 py-2 transition-colors hover:text-[#2c1810]" style={{ color: 'rgba(44,24,16,.55)' }}>
+          <Link href="/auth/login" className="text-sm font-medium px-4 py-2 transition-colors hover:text-[#2c1810]" style={{ color: 'rgba(44,24,16,.68)' }}>
             Sign in
           </Link>
           <Link
@@ -67,7 +67,7 @@ export default function LandingPage() {
                 AI-powered travel planning
               </span>
               <span style={{ height: 1, width: 48, background: 'rgba(201,64,64,.4)' }} />
-              <span className="font-hand" style={{ fontSize: 17, color: 'rgba(44,24,16,.55)', transform: 'rotate(-2deg)' }}>
+              <span className="font-hand" style={{ fontSize: 17, color: 'rgba(44,24,16,.68)', transform: 'rotate(-2deg)' }}>
                 paste a link, get a plan ✏️
               </span>
             </div>
@@ -81,9 +81,9 @@ export default function LandingPage() {
               <span className="italic" style={{ color: '#c94040' }}>to boarding pass</span>
             </h1>
 
-            <p className="text-lg max-w-lg mx-auto mb-10 leading-relaxed" style={{ color: 'rgba(44,24,16,.6)' }}>
+            <p className="text-lg max-w-lg mx-auto mb-10 leading-relaxed" style={{ color: 'rgba(44,24,16,.68)' }}>
               Paste TikToks, YouTube videos, and articles. We extract the places, pin them
-              into a beautiful travel scrapbook, and turn them into a day-by-day itinerary —
+              into a beautiful travel scrapbook, and turn them into a day-by-day itinerary,
               with packing list and destination brief included.
             </p>
 
@@ -107,7 +107,7 @@ export default function LandingPage() {
                 <ArrowRight size={16} />
               </Link>
             </div>
-            <p className="text-xs mt-3" style={{ color: 'rgba(44,24,16,.4)' }}>No signup needed for the demo · 5 seconds to a full board</p>
+            <p className="text-xs mt-3" style={{ color: 'rgba(44,24,16,.68)' }}>No signup needed for the demo · 5 seconds to a full board</p>
             <Link href="/decide"
               className="inline-flex items-center gap-1.5 mt-5 text-sm font-semibold text-[#3a5f7a] hover:text-[#2c4a62] transition-colors underline underline-offset-4 decoration-[#7e9ab5]/40">
               <Scale size={14} />
@@ -147,7 +147,7 @@ export default function LandingPage() {
                   <p className="font-hand leading-tight truncate" style={{ fontSize: 17, color: '#2c1810' }}>{card.title}</p>
                   <span className="shrink-0 font-extrabold" style={{ fontSize: 8, letterSpacing: '.08em', color: card.color }}>{card.src}</span>
                 </div>
-                <p className="mt-0.5 truncate" style={{ fontSize: 9.5, color: 'rgba(44,24,16,.5)' }}>{card.loc}</p>
+                <p className="mt-0.5 truncate" style={{ fontSize: 9.5, color: 'rgba(44,24,16,.68)' }}>{card.loc}</p>
               </motion.div>
             ))}
             {/* Sticky note */}
@@ -180,7 +180,7 @@ export default function LandingPage() {
               <h2 className="text-3xl sm:text-4xl font-bold text-[#2c1810] mb-3" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>
                 Three steps to a real plan
               </h2>
-              <p className="text-amber-800/55">Stop screenshotting travel videos you&rsquo;ll never find again.</p>
+              <p className="text-[#6b4a32]">Stop screenshotting travel videos you&rsquo;ll never find again.</p>
             </motion.div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -204,7 +204,7 @@ export default function LandingPage() {
                     {s.icon}
                   </div>
                   <h3 className="font-bold text-[#2c1810] mb-1.5">{s.title}</h3>
-                  <p className="text-sm text-amber-800/60 leading-relaxed">{s.desc}</p>
+                  <p className="text-sm text-[#6b4a32] leading-relaxed">{s.desc}</p>
                 </motion.div>
               ))}
             </div>
@@ -223,16 +223,16 @@ export default function LandingPage() {
               <h2 className="text-3xl sm:text-4xl font-bold text-[#2c1810] mb-3" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>
                 Everything until departure day
               </h2>
-              <p className="text-amber-800/55">One board per trip, and every pre-trip job handled.</p>
+              <p className="text-[#6b4a32]">One board per trip, and every pre-trip job handled.</p>
             </motion.div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { icon: <Scale size={16} />, color: '#3a5f7a', title: 'Destination decider', desc: 'Torn between cities? Compare weather, costs & visas — get a verdict.' },
+                { icon: <Scale size={16} />, color: '#3a5f7a', title: 'Destination decider', desc: 'Torn between cities? Compare weather, costs & visas, get a verdict.' },
                 { icon: <Sparkles size={16} />, color: '#c94040', title: 'AI place extraction', desc: 'Video → places, with local names and confidence scores.' },
                 { icon: <BookOpen size={16} />, color: '#e07040', title: 'Day-by-day itinerary', desc: 'Geographically-grouped days with meals, pace, and timing.' },
-                { icon: <Wand2 size={16} />, color: '#9b72bf', title: 'Refine with words', desc: '"More street food, fewer museums" — regenerate your way.' },
-                { icon: <Stamp size={16} />, color: '#7e9ab5', title: 'Destination brief', desc: 'Currency, phrases, plugs, tipping, etiquette — one passport page.' },
+                { icon: <Wand2 size={16} />, color: '#9b72bf', title: 'Refine with words', desc: '"More street food, fewer museums": regenerate your way.' },
+                { icon: <Stamp size={16} />, color: '#7e9ab5', title: 'Destination brief', desc: 'Currency, phrases, plugs, tipping, etiquette, one passport page.' },
                 { icon: <Luggage size={16} />, color: '#6b8f5e', title: 'Smart packing list', desc: 'Season-aware checklist sized to your trip and group.' },
                 { icon: <Wallet size={16} />, color: '#c9a84c', title: 'Budget guardrail', desc: 'Flights + stay + daily costs vs your budget, always on-screen.' },
                 { icon: <Printer size={16} />, color: '#3a7a7a', title: 'Print-ready plans', desc: 'Export the whole itinerary as a clean PDF for offline travel.' },
@@ -250,7 +250,7 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <h3 className="font-bold text-[#2c1810] text-sm mb-1">{f.title}</h3>
-                    <p className="text-xs text-amber-800/60 leading-relaxed">{f.desc}</p>
+                    <p className="text-xs text-[#6b4a32] leading-relaxed">{f.desc}</p>
                   </div>
                 </motion.div>
               ))}
@@ -276,7 +276,7 @@ export default function LandingPage() {
               Your next trip starts<br /><span className="italic" style={{ fontWeight: 500, color: 'rgba(242,234,216,.8)' }}>with a paste</span>
             </h2>
             <p className="mb-8 max-w-md mx-auto" style={{ color: 'rgba(242,234,216,.55)' }}>
-              Try the demo board right now — no account, no setup, just the product.
+              Try the demo board right now. No account, no setup, just the product.
             </p>
             <button
               onClick={launchDemo}
@@ -298,7 +298,7 @@ export default function LandingPage() {
           <span className="font-display text-sm" style={{ fontWeight: 800, color: '#2c1810' }}>
             TravelClick<span style={{ color: '#c94040' }}>.</span>
           </span>
-          <p className="text-xs" style={{ color: 'rgba(44,24,16,.4)' }}>Plan trips that tell a story · © 2026 TravelClick</p>
+          <p className="text-xs" style={{ color: 'rgba(44,24,16,.68)' }}>Plan trips that tell a story · © 2026 TravelClick</p>
         </div>
       </footer>
     </div>

@@ -106,7 +106,7 @@ export async function upsertProfile(profile: Omit<DbProfile, 'created_at'>) {
 }
 
 export async function getProfile(userId: string) {
-  return supabase.from('profiles').select('*').eq('id', userId).single()
+  return supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
 }
 
 export async function saveTrip(trip: DbTrip) {

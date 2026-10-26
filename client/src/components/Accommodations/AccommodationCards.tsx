@@ -2,18 +2,18 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Loader2, ExternalLink, Sparkles } from 'lucide-react'
+import { Loader2, ExternalLink, Sparkles, Hotel, BedDouble, House, Landmark, TreePalm, Building2, Gem, type LucideIcon } from 'lucide-react'
 import type { TripContext, AccommodationSuggestion } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
-const TYPE_ICONS: Record<AccommodationSuggestion['type'], string> = {
-  hotel: '🏨',
-  hostel: '🛏️',
-  villa: '🏡',
-  ryokan: '⛩️',
-  resort: '🌴',
-  apartment: '🏢',
-  boutique: '🏩',
+const TYPE_ICONS: Record<AccommodationSuggestion['type'], LucideIcon> = {
+  hotel: Hotel,
+  hostel: BedDouble,
+  villa: House,
+  ryokan: Landmark,
+  resort: TreePalm,
+  apartment: Building2,
+  boutique: Gem,
 }
 
 const PRICE_BADGE: Record<string, { label: string; cls: string }> = {
@@ -66,7 +66,7 @@ export function AccommodationCards({ trip }: Props) {
             fetched && !loading ? 'transition-colors hover:text-[#2c1810]' : 'pill-coral pill-lift'
           )}
           style={fetched && !loading
-            ? { padding: '9px 18px', border: '1px solid rgba(44,24,16,.18)', color: 'rgba(44,24,16,.6)' }
+            ? { padding: '9px 18px', border: '1px solid rgba(44,24,16,.18)', color: 'rgba(44,24,16,.68)' }
             : { padding: '9px 18px' }}
         >
           {loading && <Loader2 size={14} className="animate-spin" />}
@@ -82,6 +82,7 @@ export function AccommodationCards({ trip }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {suggestions.map((s, i) => {
             const priceBadge = PRICE_BADGE[s.priceTier]
+            const TypeIcon = TYPE_ICONS[s.type] ?? Hotel // AI may return a type outside the union
             return (
               <motion.div
                 key={s.id}
@@ -93,10 +94,10 @@ export function AccommodationCards({ trip }: Props) {
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xl">{TYPE_ICONS[s.type]}</span>
+                    <TypeIcon size={20} strokeWidth={1.75} className="text-[#a86030] shrink-0" aria-hidden="true" />
                     <div>
                       <p className="font-bold text-[#2c1810] text-sm leading-tight">{s.name}</p>
-                      <p className="text-xs text-amber-800/50 capitalize">{s.type}</p>
+                      <p className="text-xs text-[#7a5a40] capitalize">{s.type}</p>
                     </div>
                   </div>
                   <span className={cn('text-[10px] px-2 py-1 rounded-full border font-bold shrink-0', priceBadge?.cls)}>
@@ -116,7 +117,7 @@ export function AccommodationCards({ trip }: Props) {
                   ))}
                 </div>
 
-                <div className="flex items-center gap-1 text-[10px] text-amber-700/50 mb-3">
+                <div className="flex items-center gap-1 text-[10px] text-[#7a5a40] mb-3">
                   <Sparkles size={9} />
                   <span>AI-suggested</span>
                 </div>
@@ -138,7 +139,7 @@ export function AccommodationCards({ trip }: Props) {
       )}
 
       {!fetched && !loading && (
-        <p className="text-center text-amber-800/40 text-sm py-4">
+        <p className="text-center text-[#7a5a40] text-sm py-4">
           Click &ldquo;Find Stays&rdquo; to get AI-curated accommodation picks for your trip
         </p>
       )}

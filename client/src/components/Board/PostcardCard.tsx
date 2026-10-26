@@ -114,7 +114,7 @@ export function PostcardCard({ card, onRemove, style }: Props) {
               </span>
             </div>
             {subline && (
-              <span className="block truncate" style={{ fontSize: 10.5, color: 'rgba(44,24,16,.5)' }}>
+              <span className="block truncate" style={{ fontSize: 10.5, color: 'rgba(44,24,16,.68)' }}>
                 {subline}
               </span>
             )}
@@ -255,7 +255,7 @@ export function PostcardCard({ card, onRemove, style }: Props) {
                 {card.creator && (
                   <div className="flex items-center gap-1.5 mb-4">
                     <Globe size={11} style={{ color: '#a86030' }} />
-                    <p className="font-hand" style={{ fontSize: 16, color: 'rgba(44,24,16,.6)' }}>via @{card.creator}</p>
+                    <p className="font-hand" style={{ fontSize: 16, color: 'rgba(44,24,16,.68)' }}>via @{card.creator}</p>
                   </div>
                 )}
 
@@ -276,7 +276,7 @@ export function PostcardCard({ card, onRemove, style }: Props) {
                     <button
                       onClick={() => { onRemove(card.id); setExpanded(false) }}
                       className="px-4 py-2.5 rounded-full font-semibold transition-colors hover:opacity-80"
-                      style={{ fontSize: 12.5, color: 'rgba(44,24,16,.55)', border: '1px solid rgba(44,24,16,.18)' }}
+                      style={{ fontSize: 12.5, color: 'rgba(44,24,16,.68)', border: '1px solid rgba(44,24,16,.18)' }}
                     >
                       Remove
                     </button>

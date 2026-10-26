@@ -43,7 +43,7 @@ export function AvatarUpload({ preview, onFile, size = 100 }: Props) {
           </div>
         )}
       </button>
-      <p className="text-xs text-amber-800/40">Click to upload photo</p>
+      <p className="text-xs text-[#7a5a40]">Click to upload photo</p>
       <input
         ref={inputRef}
         type="file"

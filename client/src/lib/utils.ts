@@ -46,6 +46,11 @@ export function getDayCount(start: string, end: string): number {
   return Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1
 }
 
+/** All money in the app is Singapore dollars */
+export function formatSGD(n: number): string {
+  return 'S$' + Math.round(n).toLocaleString('en-SG')
+}
+
 export function googleFlightsUrl(destination: string, when?: string): string {
   const q = `flights to ${destination}${when ? ` in ${when}` : ''}`
   return `https://www.google.com/travel/flights?q=${encodeURIComponent(q)}`

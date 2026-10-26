@@ -149,7 +149,7 @@ export function CollageBoard({ trip, cards, notes, activeFilter, freshNoteId, on
                   border: '2px dashed rgba(44,24,16,.2)',
                   borderRadius: 10,
                   padding: '26px 16px',
-                  color: 'rgba(44,24,16,.45)',
+                  color: 'rgba(44,24,16,.68)',
                   background: 'rgba(255,254,249,.4)',
                   transform: 'rotate(-1deg)',
                   cursor: 'pointer',
@@ -196,8 +196,8 @@ export function CollageBoard({ trip, cards, notes, activeFilter, freshNoteId, on
 
       {/* Empty board — a handwritten nudge beside the add slot */}
       {cards.length === 0 && notes.length === 0 && (
-        <div className="absolute font-hand" style={{ left: 40, top: 60, fontSize: 26, color: 'rgba(44,24,16,.5)', transform: 'rotate(-2deg)', maxWidth: 420 }}>
-          your scrapbook is empty — paste a TikTok, YouTube or IG link and we&rsquo;ll pin the places for you ✏️
+        <div className="absolute font-hand" style={{ left: 40, top: 60, fontSize: 26, color: 'rgba(44,24,16,.68)', transform: 'rotate(-2deg)', maxWidth: 420 }}>
+          your scrapbook is empty: paste a TikTok, YouTube or IG link and we&rsquo;ll pin the places for you ✏️
         </div>
       )}
     </div>

@@ -1,10 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import type { TripContext, GeneratedItinerary, ItineraryDay } from '@/lib/types'
+import type { TripContext, GeneratedItinerary, ItineraryDay, TripPace, BookedFlight } from '@/lib/types'
 import { getDayCount } from '@/lib/utils'
 import { rateLimit, clamp } from '@/lib/api-guard'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+const PACE_STOPS: Record<TripPace, string> = {
+  slow: '2–3 stops a day (meals not counted), long unhurried gaps',
+  balanced: '3–4 stops a day (meals not counted)',
+  full: '5–6 stops a day (meals not counted), still with one rest block',
+}
+
+/** Business rules the model may skip: every day keeps a rest block and an anchor */
+function enforcePace(day: ItineraryDay): ItineraryDay {
+  const all = [...(day.morning ?? []), ...(day.afternoon ?? []), ...(day.evening ?? [])]
+  const out = { ...day, afternoon: day.afternoon ?? [] }
+  // No afternoon means the day was cut short (e.g. a morning flight home), so a 2 PM rest block would be wrong
+  if (!all.some((b) => b.category === 'rest') && out.afternoon.length > 0) {
+    out.afternoon = [
+      { time: out.afternoon[0]?.time ?? '2:00 PM', activity: 'Rest block', place: 'Café or hotel near the next stop', duration: '1 hour', category: 'rest', notes: 'Protected downtime — keep it.' },
+      ...out.afternoon,
+    ]
+  }
+  if (!out.anchor?.trim()) out.anchor = all.find((b) => b.category === 'activity')?.activity
+  return out
+}
 
 export async function POST(req: NextRequest) {
   const limited = rateLimit(req, 'itinerary', 6)
@@ -26,6 +47,13 @@ export async function POST(req: NextRequest) {
     .slice(0, 60)
     .map((p: unknown) => clamp(p, 160))
   const instructions = clamp(body.instructions, 600)
+  const DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/
+  const flights = (Array.isArray(body.flights) ? body.flights as BookedFlight[] : [])
+    .filter((f) => DT.test(String(f?.departAt)) && DT.test(String(f?.arriveAt)))
+    .slice(0, 6)
+    .map((f) => `  • ${f.leg === 'return' ? 'Return' : f.leg === 'outbound' ? 'Outbound' : 'Flight'} ${clamp(f.flightNo, 12)} ${clamp(f.from, 40)} → ${clamp(f.to, 40)}: departs ${f.departAt.replace('T', ' ')}, arrives ${f.arriveAt.replace('T', ' ')} (local times)`)
+  const pace: TripPace = (['slow', 'balanced', 'full'] as const).find((p) => p === trip.pace) ?? 'balanced'
+  const dayStart = /^\d{1,2}:\d{2}$/.test(trip.dayStart ?? '') ? trip.dayStart : '09:00'
   const ageContext = trip.ageRanges.length
     ? `Group includes: ${trip.ageRanges.join(', ')}.`
     : 'Adults only.'
@@ -52,9 +80,15 @@ TRIP DETAILS:
 - Travellers: ${trip.paxCount} people. ${ageContext}
 - Goals: ${trip.objectives.join(', ')}
 - Budget: ${trip.priceRange}
+- Pace: ${pace} — ${PACE_STOPS[pace]}. Days start around ${dayStart}.
 
 ${placesContext}
-${instructions?.trim() ? `\nTRAVELLER'S SPECIAL REQUESTS (high priority — shape the whole plan around these):\n${instructions.trim()}\n` : ''}
+${flights.length ? `
+BOOKED FLIGHTS (fixed, plan around them):
+${flights.join('\n')}
+- Arrival day: nothing before landing + 2 hours (immigration, transfer, bag drop); keep that evening light
+- Departure day: be at the airport 3 hours before an international departure, plus travel time; no activities after that
+` : ''}${instructions?.trim() ? `\nTRAVELLER'S SPECIAL REQUESTS (high priority — shape the whole plan around these):\n${instructions.trim()}\n` : ''}
 INSTRUCTIONS:
 1. Each day has morning, afternoon, and evening blocks
 2. Group nearby attractions on the same day to minimise travel
@@ -64,19 +98,29 @@ INSTRUCTIONS:
 6. Note if booking is required or if there are best visiting times
 7. The route should feel logical and geographic
 8. If saved places are fewer than ${Math.ceil(days * 1.5)} for ${days} days, fill remaining slots with highly-recommended local spots — famous landmarks, neighbourhood finds, and must-eat restaurants
-9. Estimate a realistic per-person daily cost (activities + meals + local transport, excluding accommodation) for the ${trip.priceRange} budget tier
+9. PACE RULES (non-negotiable):
+   - Every day has exactly ONE "anchor" (the thing that matters most); everything else is a bonus
+   - Every day has at least one block with category "rest" (café, hotel break, onsen, park) of 1 hour or more
+   - Every day has two backups: "rain" (an indoor alternative) and "tired" (a low-effort alternative)
+   - At most 3 "transport" blocks per day
+   - Day 1 (arrival) evening stays light; the last day is lighter and leaves 3+ hours before an international flight
+   - A theme-park or very long day gets a slow morning before and a light day after
+   - A bus or train with 4 or fewer departures a day is a FIXED departure: build the day around it and say so in notes
+10. Estimate a realistic per-person daily cost (activities + meals + local transport, excluding accommodation) for the ${trip.priceRange} budget tier, in Singapore dollars (S$)
 
 Return ONLY valid JSON (no markdown) in this exact structure:
 {
   "overview": "2-3 sentence trip summary",
   "generalTips": ["tip1", "tip2", "tip3"],
-  "totalEstimatedCost": "~$XX–XX per person / day",
+  "totalEstimatedCost": "~S$XX–XX per person / day",
   "days": [
     {
       "day": 1,
       "date": "YYYY-MM-DD",
       "theme": "Day theme/title",
-      "estimatedCost": "~$XX pp",
+      "anchor": "The one thing that matters today",
+      "backups": { "rain": "Indoor alternative", "tired": "Low-effort alternative" },
+      "estimatedCost": "~S$XX pp",
       "morning": [
         {
           "time": "9:00 AM",
@@ -128,7 +172,7 @@ Return ONLY valid JSON (no markdown) in this exact structure:
       destination: trip.destination,
       totalDays: days,
       overview: raw.overview ?? '',
-      days: raw.days,
+      days: raw.days.map(enforcePace),
       generalTips: raw.generalTips ?? [],
       totalEstimatedCost: raw.totalEstimatedCost,
     }

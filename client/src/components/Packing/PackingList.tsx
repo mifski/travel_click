@@ -51,7 +51,7 @@ export function PackingList({ trip }: Props) {
           </span>
           {total > 0 && (
             <span className="font-hand" style={{ fontSize: 16, color: pct === 100 ? '#6b8f5e' : 'rgba(44,24,16,.5)' }}>
-              {pct === 100 ? '🎉 all packed!' : `${packed}/${total} packed`}
+              {pct === 100 ? 'all packed!' : `${packed}/${total} packed`}
             </span>
           )}
         </div>
@@ -63,7 +63,7 @@ export function PackingList({ trip }: Props) {
             list && !loading ? 'transition-colors hover:text-[#2c1810]' : 'pill-coral pill-lift'
           )}
           style={list && !loading
-            ? { padding: '9px 18px', border: '1px solid rgba(44,24,16,.18)', color: 'rgba(44,24,16,.6)' }
+            ? { padding: '9px 18px', border: '1px solid rgba(44,24,16,.18)', color: 'rgba(44,24,16,.68)' }
             : { padding: '9px 18px' }}
         >
           {loading ? <Loader2 size={14} className="animate-spin" /> : list ? <RefreshCw size={13} /> : null}
@@ -73,8 +73,8 @@ export function PackingList({ trip }: Props) {
       <div className="mb-4" />
 
       {!list && !loading && (
-        <p className="text-center text-amber-800/40 text-sm py-4">
-          AI builds a checklist for {trip.destination} — sized to your trip, season, and group.
+        <p className="text-center text-[#7a5a40] text-sm py-4">
+          AI builds a checklist for {trip.destination}, sized to your trip, season, and group.
         </p>
       )}
 
@@ -97,10 +97,10 @@ export function PackingList({ trip }: Props) {
               return (
                 <div key={cat.name} className="rounded-xl border border-amber-200/80 bg-[#fffdf5] p-3.5">
                   <div className="flex items-center justify-between mb-2.5">
-                    <p className="text-[11px] font-black uppercase tracking-wide text-amber-900/70 flex items-center gap-1.5">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-[#6b4a32] flex items-center gap-1.5">
                       <span className="text-sm">{cat.icon}</span> {cat.name}
                     </p>
-                    <span className="text-[10px] text-amber-700/50 font-semibold">{catPacked}/{cat.items.length}</span>
+                    <span className="text-[10px] text-[#7a5a40] font-semibold">{catPacked}/{cat.items.length}</span>
                   </div>
                   <ul className="space-y-1">
                     {cat.items.map((item) => (
@@ -120,12 +120,12 @@ export function PackingList({ trip }: Props) {
                           <span className="min-w-0">
                             <span className={cn(
                               'text-xs font-medium block transition-all',
-                              item.checked ? 'text-amber-800/40 line-through' : 'text-[#2c1810]'
+                              item.checked ? 'text-[#7a5a40] line-through' : 'text-[#2c1810]'
                             )}>
                               {item.label}
                             </span>
                             {item.note && !item.checked && (
-                              <span className="text-[10px] text-amber-700/50 block leading-tight">{item.note}</span>
+                              <span className="text-[10px] text-[#7a5a40] block leading-tight">{item.note}</span>
                             )}
                           </span>
                         </button>

@@ -25,7 +25,7 @@ export default function LoginPage() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Login failed'
       setError(msg === 'Failed to fetch'
-        ? 'Could not reach Supabase — the project may still be waking up. Wait 1–2 min and try again.'
+        ? 'Could not reach Supabase. The project may still be waking up. Wait 1-2 min and try again.'
         : msg)
     } finally { setLoading(false) }
   }
@@ -33,7 +33,7 @@ export default function LoginPage() {
   const inp = 'w-full bg-amber-50/60 border border-amber-200 rounded-xl px-4 py-3 text-[#2c1810] text-sm placeholder-amber-700/30 focus:outline-none focus:border-[#c94040]/60 focus:bg-white transition-colors'
 
   return (
-    <div className="scrapbook-bg min-h-screen flex flex-col items-center justify-center px-4">
+    <div className="scrapbook-bg min-h-dvh flex flex-col items-center justify-center px-4">
 
       <Link href="/" className="font-display mb-10" style={{ fontWeight: 800, fontSize: 20, color: '#2c1810', letterSpacing: '-.02em' }}>
         TravelClick<span style={{ color: '#c94040' }}>.</span>
@@ -44,26 +44,28 @@ export default function LoginPage() {
         style={{ background: '#fffef9', borderRadius: 16, boxShadow: '0 2px 3px rgba(44,24,16,.12), 0 30px 60px -12px rgba(44,24,16,.3)' }}>
 
         <h1 className="font-display text-2xl mb-1" style={{ fontWeight: 800, color: '#2c1810' }}>Welcome back</h1>
-        <p className="text-sm mb-7" style={{ color: 'rgba(44,24,16,.5)' }}>Sign in to access your boards</p>
+        <p className="text-sm mb-7" style={{ color: 'rgba(44,24,16,.68)' }}>Sign in to access your boards</p>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="text-xs text-amber-800/60 mb-1 block font-semibold">Email</label>
+            <label className="text-xs text-[#6b4a32] mb-1 block font-semibold">Email</label>
             <input type="email" autoFocus value={email} onChange={e => setEmail(e.target.value)}
               placeholder="you@example.com" required className={inp} />
           </div>
           <div>
-            <label className="text-xs text-amber-800/60 mb-1 block font-semibold">Password</label>
+            <label className="text-xs text-[#6b4a32] mb-1 block font-semibold">Password</label>
             <div className="relative">
               <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
                 placeholder="Your password" required className={`${inp} pr-10`} />
               <button type="button" onClick={() => setShowPw(v => !v)}
                 aria-label={showPw ? 'Hide password' : 'Show password'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-700/40 hover:text-amber-700">
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7a5a40] hover:text-amber-700">
                 {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
           </div>
+
+          <Link href="/auth/reset" className="block text-right text-xs text-[#7a5a40] hover:text-[#c94040] -mt-2">Forgot password?</Link>
 
           {error && <p className="text-red-600 text-xs bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 
@@ -75,7 +77,7 @@ export default function LoginPage() {
         </form>
       </motion.div>
 
-      <p className="text-amber-800/50 text-sm mt-6">
+      <p className="text-[#7a5a40] text-sm mt-6">
         New here?{' '}
         <Link href="/auth/signup" className="text-[#c94040] hover:text-[#a83030] font-semibold">Create account</Link>
       </p>

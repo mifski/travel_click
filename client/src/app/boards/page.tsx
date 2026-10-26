@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, MapPin, Calendar, Users, Loader2,
-  Trash2, ChevronRight, BookOpen, User, AlertTriangle, Scale
+  Trash2, ChevronRight, BookOpen, User, AlertTriangle, Scale, Plane, Map as MapIcon
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useTripStore } from '@/lib/store'
@@ -91,7 +91,7 @@ export default function BoardsPage() {
       price_range: trip.priceRange,
       created_at: trip.createdAt,
     })
-    if (error) toast.error('Saved locally — cloud sync failed')
+    if (error) toast.error('Saved locally. Cloud sync failed')
     setCreating(false)
     setShowWizard(false)
     setWizardStep(0)
@@ -110,7 +110,7 @@ export default function BoardsPage() {
   }
 
   if (loading || !user) return (
-    <div className="scrapbook-bg min-h-screen flex items-center justify-center">
+    <div className="scrapbook-bg min-h-dvh flex items-center justify-center">
       <Loader2 className="animate-spin text-[#c94040]" size={28} />
     </div>
   )
@@ -124,7 +124,7 @@ export default function BoardsPage() {
     : true
 
   return (
-    <div className="scrapbook-bg min-h-screen">
+    <div className="scrapbook-bg min-h-dvh">
       {/* Header */}
       <header className="px-6 sm:px-10 py-4 flex items-center justify-between"
         style={{ background: 'rgba(233,223,205,.85)', backdropFilter: 'blur(8px)' }}>
@@ -141,7 +141,7 @@ export default function BoardsPage() {
                 <User size={14} className="text-amber-600" />
               </div>
             )}
-            <span className="text-amber-800/60 text-sm group-hover:text-amber-900 transition-colors hidden sm:block">
+            <span className="text-[#6b4a32] text-sm group-hover:text-amber-900 transition-colors hidden sm:block">
               {profile?.display_name ?? 'Profile'}
             </span>
           </Link>
@@ -160,7 +160,7 @@ export default function BoardsPage() {
           <h1 className="font-display text-4xl italic" style={{ fontWeight: 800, color: '#2c1810', letterSpacing: '-.02em' }}>
             {profile?.display_name ? `Welcome back, ${profile.display_name.split(' ')[0]}` : 'Every trip, one scrapbook'}
           </h1>
-          <p className="mt-1.5" style={{ color: 'rgba(44,24,16,.5)' }}>Every trip, every memory — all in one place</p>
+          <p className="mt-1.5" style={{ color: 'rgba(44,24,16,.68)' }}>Every trip, every memory, all in one place</p>
         </div>
 
         {/* New trip + decide buttons */}
@@ -172,7 +172,7 @@ export default function BoardsPage() {
             </div>
             <div className="text-left">
               <p className="text-[#2c1810] font-bold">Plan a new trip</p>
-              <p className="text-amber-800/50 text-sm">Start a scrapbook for your next adventure</p>
+              <p className="text-[#7a5a40] text-sm">Start a scrapbook for your next adventure</p>
             </div>
           </button>
           <Link href="/decide"
@@ -182,7 +182,7 @@ export default function BoardsPage() {
             </div>
             <div className="text-left">
               <p className="text-[#2c1810] font-bold">Can&rsquo;t decide?</p>
-              <p className="text-amber-800/50 text-sm">Compare destinations</p>
+              <p className="text-[#7a5a40] text-sm">Compare destinations</p>
             </div>
           </Link>
         </div>
@@ -193,9 +193,9 @@ export default function BoardsPage() {
             <Loader2 className="animate-spin text-[#c94040]" size={24} />
           </div>
         ) : dbTrips.length === 0 ? (
-          <div className="text-center py-12 text-amber-800/40">
-            <div className="text-5xl mb-4">🗺️</div>
-            <p className="font-medium">No boards yet — start planning!</p>
+          <div className="text-center py-12 text-[#7a5a40]">
+            <MapIcon size={44} strokeWidth={1.5} className="mx-auto mb-4" aria-hidden="true" />
+            <p className="font-medium">No boards yet. Start planning!</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -218,7 +218,7 @@ export default function BoardsPage() {
                           <MapPin size={12} className="text-[#c94040]" />
                           <h3 className="font-bold text-[#2c1810]">{trip.destination}</h3>
                         </div>
-                        <p className="text-amber-800/50 text-xs">{trip.country}</p>
+                        <p className="text-[#7a5a40] text-xs">{trip.country}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         {status && (
@@ -228,7 +228,7 @@ export default function BoardsPage() {
                         )}
                         <button onClick={() => setConfirmDelete(trip)}
                           aria-label={`Delete ${trip.destination} board`}
-                          className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-100 text-amber-800/30 hover:text-red-500">
+                          className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-100 text-[#7a5a40] hover:text-red-500">
                           <Trash2 size={13} />
                         </button>
                       </div>
@@ -240,17 +240,18 @@ export default function BoardsPage() {
                       )}
                       <Chip icon={<Users size={10} />} label={`${trip.pax_count} pax`} />
                       <Chip icon={null} label={priceLabel} />
-                      {(trip.objectives as TripObjective[]).slice(0, 2).map(obj => (
-                        <Chip key={obj} icon={<span className="text-[10px]">{OBJECTIVE_LABELS[obj]?.icon}</span>} label={OBJECTIVE_LABELS[obj]?.label ?? obj} />
-                      ))}
+                      {(trip.objectives as TripObjective[]).slice(0, 2).map(obj => {
+                        const Icon = OBJECTIVE_LABELS[obj]?.icon
+                        return <Chip key={obj} icon={Icon && <Icon size={10} aria-hidden="true" />} label={OBJECTIVE_LABELS[obj]?.label ?? obj} />
+                      })}
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-amber-800/35 text-xs">{pinCount} pin{pinCount !== 1 ? 's' : ''}</span>
+                      <span className="text-[#7a5a40] text-xs">{pinCount} pin{pinCount !== 1 ? 's' : ''}</span>
                       <div className="flex gap-2">
                         <Link href={`/board/${trip.id}/itinerary`}
                           className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-colors"
-                          style={{ border: '1px solid rgba(44,24,16,.18)', color: 'rgba(44,24,16,.6)' }}>
+                          style={{ border: '1px solid rgba(44,24,16,.18)', color: 'rgba(44,24,16,.68)' }}>
                           <BookOpen size={11} /> Binder
                         </Link>
                         <Link href={`/board/${trip.id}`}
@@ -282,7 +283,7 @@ export default function BoardsPage() {
               <h3 className="font-bold text-[#2c1810] text-lg mb-1" style={{ fontFamily: 'var(--font-playfair, Georgia, serif)' }}>
                 Delete &ldquo;{confirmDelete.destination}&rdquo;?
               </h3>
-              <p className="text-amber-800/60 text-sm mb-5">
+              <p className="text-[#6b4a32] text-sm mb-5">
                 This removes the board, all its pins, notes, and itinerary. There&rsquo;s no undo.
               </p>
               <div className="flex gap-3">
@@ -322,12 +323,12 @@ export default function BoardsPage() {
                     {i < WIZARD_STEPS.length - 1 && <div className={cn('flex-1 h-px w-4', i < wizardStep ? 'bg-[#c94040]' : 'bg-amber-200')} />}
                   </div>
                 ))}
-                <span className="ml-auto text-amber-800/40 text-xs font-semibold">{WIZARD_STEPS[wizardStep]}</span>
+                <span className="ml-auto text-[#7a5a40] text-xs font-semibold">{WIZARD_STEPS[wizardStep]}</span>
               </div>
 
               {wizardStep === 0 && (
                 <div className="space-y-3">
-                  <label className="text-amber-800/70 text-sm font-medium">Where are you going?</label>
+                  <label className="text-[#6b4a32] text-sm font-medium">Where are you going?</label>
                   <input autoFocus value={activeSetup.destination ?? ''} onChange={e => setSetupField('destination', e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && canNext && setWizardStep(1)}
                     placeholder="Tokyo, Japan"
@@ -342,19 +343,19 @@ export default function BoardsPage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs text-amber-800/60 mb-1 block font-semibold">From</label>
+                      <label className="text-xs text-[#6b4a32] mb-1 block font-semibold">From</label>
                       <input type="date" value={activeSetup.startDate ?? ''} onChange={e => setSetupField('startDate', e.target.value)}
                         className="w-full bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-[#2c1810] text-sm focus:outline-none focus:border-[#c94040]/60" />
                     </div>
                     <div>
-                      <label className="text-xs text-amber-800/60 mb-1 block font-semibold">To</label>
+                      <label className="text-xs text-[#6b4a32] mb-1 block font-semibold">To</label>
                       <input type="date" value={activeSetup.endDate ?? ''} onChange={e => setSetupField('endDate', e.target.value)}
                         min={activeSetup.startDate}
                         className="w-full bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-[#2c1810] text-sm focus:outline-none focus:border-[#c94040]/60" />
                     </div>
                   </div>
                   <div>
-                    <label className="text-amber-800/70 text-sm mb-2 block font-medium">Travellers</label>
+                    <label className="text-[#6b4a32] text-sm mb-2 block font-medium">Travellers</label>
                     <div className="flex items-center gap-3">
                       <button onClick={() => setSetupField('paxCount', Math.max(1, (activeSetup.paxCount ?? 2) - 1))}
                         aria-label="Fewer travellers"
@@ -371,11 +372,11 @@ export default function BoardsPage() {
               {wizardStep === 2 && (
                 <div className="space-y-4">
                   <div>
-                    <label className="text-amber-800/70 text-sm mb-3 block font-medium">Age groups</label>
+                    <label className="text-[#6b4a32] text-sm mb-3 block font-medium">Age groups</label>
                     <AgeRangeSelector selected={activeSetup.ageRanges ?? ['adults']} onChange={r => toggleAgeRange(r as AgeRange)} />
                   </div>
                   <div>
-                    <label className="text-amber-800/70 text-sm mb-3 block font-medium">Budget</label>
+                    <label className="text-[#6b4a32] text-sm mb-3 block font-medium">Budget</label>
                     <BudgetSelector selected={activeSetup.priceRange ?? 'mid'} onChange={r => setPriceRange(r as PriceRange)} />
                   </div>
                 </div>
@@ -383,14 +384,14 @@ export default function BoardsPage() {
 
               {wizardStep === 3 && (
                 <div>
-                  <label className="text-amber-800/70 text-sm mb-3 block font-medium">Trip goals (up to 3)</label>
+                  <label className="text-[#6b4a32] text-sm mb-3 block font-medium">Trip goals (up to 3)</label>
                   <ObjectiveSelector selected={activeSetup.objectives ?? []} onChange={o => toggleObjective(o as TripObjective)} />
                 </div>
               )}
 
               <div className="flex justify-between mt-6">
                 <button onClick={() => wizardStep > 0 ? setWizardStep(s => s - 1) : setShowWizard(false)}
-                  className="text-amber-700/50 hover:text-amber-800 text-sm transition-colors px-2 py-2 font-medium">
+                  className="text-[#7a5a40] hover:text-amber-800 text-sm transition-colors px-2 py-2 font-medium">
                   {wizardStep === 0 ? 'Cancel' : '← Back'}
                 </button>
                 {wizardStep < WIZARD_STEPS.length - 1 ? (
@@ -401,8 +402,8 @@ export default function BoardsPage() {
                 ) : (
                   <button onClick={handleCreateTrip} disabled={creating}
                     className="pill-coral pill-lift px-6 py-2.5 rounded-full font-bold text-sm disabled:opacity-60 flex items-center gap-2">
-                    {creating && <Loader2 size={14} className="animate-spin" />}
-                    Create board ✈️
+                    {creating ? <Loader2 size={14} className="animate-spin" /> : <Plane size={14} aria-hidden="true" />}
+                    Create board
                   </button>
                 )}
               </div>

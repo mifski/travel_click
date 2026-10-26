@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og'
 
-export const alt = 'TravelClick — from saved videos to a real trip plan'
+export const alt = 'TravelClick: from saved videos to a real trip plan'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
@@ -39,7 +39,7 @@ export default function Image() {
             textAlign: 'center',
           }}
         >
-          From saved videos to boarding pass — AI trip planning in a travel scrapbook
+          From saved videos to boarding pass. AI trip planning in a travel scrapbook
         </div>
 
         <div style={{ display: 'flex', gap: 36 }}>

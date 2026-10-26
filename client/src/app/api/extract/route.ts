@@ -1,6 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSourceFromUrl, isYouTubeUrl } from '@/lib/utils'
 import { rateLimit, clamp } from '@/lib/api-guard'
+import { fetchPlaceImage } from '@/lib/place-image'
+import { searchPlaces } from '@/lib/place-search'
+
+/** Hosts the C# video backend can read; any other link is treated as an article page */
+const SOCIAL_HOST = /(^|\.)(tiktok\.com|instagram\.com|youtube\.com|youtu\.be|x\.com|twitter\.com|facebook\.com|fb\.watch|xiaohongshu\.com|xhslink\.com)$/i
+
+/** Pull title + description from an article page so place search can resolve it */
+async function readArticle(url: string): Promise<string | null> {
+  // ponytail: blocks private hosts by name/IP literal only; DNS-rebinding needs a resolve-then-check if this goes public
+  const host = new URL(url).hostname
+  if (/^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.|\[|::1)|\.(local|internal)$/i.test(host)) return null
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 TravelClick/1.0' }, signal: AbortSignal.timeout(8000) })
+    if (!res.ok) return null
+    const html = (await res.text()).slice(0, 200_000)
+    const meta = (p: string) => html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${p}["'][^>]+content=["']([^"']+)`, 'i'))?.[1]
+    const title = meta('og:title') ?? html.match(/<title[^>]*>([^<]+)/i)?.[1]
+    const desc = meta('og:description') ?? meta('description')
+    return [title, desc].filter(Boolean).join('. ') || null
+  } catch { return null }
+}
 
 const BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:5107'
 const BACKEND_API_KEY = process.env.BACKEND_API_KEY
@@ -15,17 +36,6 @@ async function fetchYouTubeMetadata(url: string) {
     if (!res.ok) return null
     const data = await res.json()
     return { title: data.title, channel: data.author_name, thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, videoId }
-  } catch { return null }
-}
-
-async function fetchPlaceImage(name: string, city: string, country: string): Promise<string | null> {
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-    const params = new URLSearchParams({ name, city, country })
-    const res = await fetch(`${baseUrl}/api/place-image?${params}`, { signal: AbortSignal.timeout(6000) })
-    if (!res.ok) return null
-    const data = await res.json()
-    return data.url ?? null
   } catch { return null }
 }
 
@@ -65,6 +75,18 @@ export async function POST(req: NextRequest) {
         metadata: { videoId: meta?.videoId, channel: meta?.channel },
       }],
     })
+  }
+
+  // Articles (Wikipedia, blogs): resolve the page's subject with place search instead of the video backend
+  if (!SOCIAL_HOST.test(new URL(url).hostname)) {
+    const text = manualCaption ?? await readArticle(url)
+    if (!text) return NextResponse.json({ error: 'Couldn’t read that page. Add a caption, or use Search a place.' }, { status: 422 })
+    try {
+      const cards = await searchPlaces(text, { destination: clamp(body.destination, 80), country: clamp(body.country, 80) }, url)
+      return NextResponse.json({ source, cards })
+    } catch {
+      return NextResponse.json({ error: 'Couldn’t pull places from that page. Try Search a place.' }, { status: 500 })
+    }
   }
 
   try {
