@@ -3,6 +3,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { TripContext, GeneratedItinerary, RealityReport, RealityFinding, RealityFact, BookingStub } from '@/lib/types'
 import { rateLimit, clamp } from '@/lib/api-guard'
 
+export const maxDuration = 120
+
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/

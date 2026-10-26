@@ -4,6 +4,8 @@ import { rateLimit, clamp } from '@/lib/api-guard'
 import { fetchPlaceImage } from '@/lib/place-image'
 import { searchPlaces } from '@/lib/place-search'
 
+export const maxDuration = 300
+
 /** Hosts the C# video backend can read; any other link is treated as an article page */
 const SOCIAL_HOST = /(^|\.)(tiktok\.com|instagram\.com|youtube\.com|youtu\.be|x\.com|twitter\.com|facebook\.com|fb\.watch|xiaohongshu\.com|xhslink\.com)$/i
 

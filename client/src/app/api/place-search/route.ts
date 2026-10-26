@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit, clamp } from '@/lib/api-guard'
 import { searchPlaces } from '@/lib/place-search'
 
+export const maxDuration = 60
+
 export async function POST(req: NextRequest) {
   const limited = rateLimit(req, 'place-search', 40)
   if (limited) return limited

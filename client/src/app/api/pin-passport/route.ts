@@ -3,6 +3,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { PinPassport } from '@/lib/types'
 import { rateLimit, clamp } from '@/lib/api-guard'
 
+export const maxDuration = 60
+
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 const KINDS: PinPassport['kind'][] = ['classic', 'in-between', 'gem']

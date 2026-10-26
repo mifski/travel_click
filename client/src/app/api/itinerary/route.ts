@@ -6,6 +6,9 @@ import { rateLimit, clamp } from '@/lib/api-guard'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+// Two AI steps; allow well past the usual time so a slow day never cuts the request off
+export const maxDuration = 300
+
 const PACE_STOPS: Record<TripPace, string> = {
   slow: '2–3 stops a day (meals not counted), long unhurried gaps',
   balanced: '3–4 stops a day (meals not counted)',
@@ -36,7 +39,7 @@ function enforcePace(day: ItineraryDay): ItineraryDay {
 }
 
 export async function POST(req: NextRequest) {
-  const limited = rateLimit(req, 'itinerary', 6)
+  const limited = rateLimit(req, 'itinerary', 10)
   if (limited) return limited
 
   const body = await req.json()
@@ -82,9 +85,7 @@ export async function POST(req: NextRequest) {
     placesContext = `No specific places have been saved yet. Design a complete ${days}-day itinerary featuring ${trip.destination}'s top attractions, local dining, and authentic experiences.`
   }
 
-  const prompt = `You are an expert travel planner. Create a detailed ${days}-day itinerary for this trip.
-
-TRIP DETAILS:
+  const tripBrief = `TRIP DETAILS:
 - Destination: ${trip.destination}, ${trip.country}
 - Dates: ${trip.startDate} to ${trip.endDate} (${days} days)
 - Travellers: ${trip.paxCount} people. ${ageContext}
@@ -93,100 +94,112 @@ TRIP DETAILS:
 - Pace: ${pace} — ${PACE_STOPS[pace]}. Days start around ${dayStart}.
 - Added places (not the saved ones): ${DISCOVERY_MIX[discovery]}
 ${homeBase ? `- Home base: ${homeBase}. Every day starts and ends here (except arrival and departure legs). First block of the day is travel from the base, last block is the way back, with real travel times. Keep each day's stops within easy reach of the base or along one line out and back.
-` : ''}
-${placesContext}
-${flights.length ? `
+` : ''}${flights.length ? `
 BOOKED FLIGHTS (fixed, plan around them):
 ${flights.join('\n')}
 - Arrival day: nothing before landing + 2 hours (immigration, transfer, bag drop); keep that evening light
 - Departure day: be at the airport 3 hours before an international departure, plus travel time; no activities after that
-` : ''}${instructions?.trim() ? `\nTRAVELLER'S SPECIAL REQUESTS (high priority — shape the whole plan around these):\n${instructions.trim()}\n` : ''}
-INSTRUCTIONS:
-1. Each day has morning, afternoon, and evening blocks
-2. Group nearby attractions on the same day to minimise travel
-3. Pace activities for the age groups present — no rushed back-to-back
-4. Include specific meal suggestions timed around activities
-5. Add travel time estimates between stops (walking or transit)
-6. Note if booking is required or if there are best visiting times
-7. The route should feel logical and geographic
-8. If saved places are fewer than ${Math.ceil(days * 1.5)} for ${days} days, fill remaining slots with highly-recommended local spots — famous landmarks, neighbourhood finds, and must-eat restaurants
-9. PACE RULES (non-negotiable):
-   - Every day has exactly ONE "anchor" (the thing that matters most); everything else is a bonus
-   - Every day has at least one block with category "rest" (café, hotel break, onsen, park) of 1 hour or more
-   - Every day has two backups: "rain" (an indoor alternative) and "tired" (a low-effort alternative)
-   - At most 3 "transport" blocks per day
-   - Day 1 (arrival) evening stays light; the last day is lighter and leaves 3+ hours before an international flight
-   - A theme-park or very long day gets a slow morning before and a light day after
-   - A bus or train with 4 or fewer departures a day is a FIXED departure: build the day around it and say so in notes
-10. Estimate a realistic per-person daily cost (activities + meals + local transport, excluding accommodation) for the ${trip.priceRange} budget tier, in Singapore dollars (S$)
+` : ''}${instructions?.trim() ? `\nTRAVELLER'S SPECIAL REQUESTS (high priority — shape the whole plan around these):\n${instructions.trim()}\n` : ''}`
 
-Return ONLY valid JSON (no markdown) in this exact structure:
-{
-  "overview": "2-3 sentence trip summary",
-  "generalTips": ["tip1", "tip2", "tip3"],
-  "totalEstimatedCost": "~S$XX–XX per person / day",
-  "days": [
-    {
-      "day": 1,
-      "date": "YYYY-MM-DD",
-      "theme": "Day theme/title",
-      "anchor": "The one thing that matters today",
-      "backups": { "rain": "Indoor alternative", "tired": "Low-effort alternative" },
-      "estimatedCost": "~S$XX pp",
-      "morning": [
-        {
-          "time": "9:00 AM",
-          "activity": "Activity name",
-          "place": "Specific place/address",
-          "duration": "2 hours",
-          "notes": "Optional note",
-          "bookingRequired": false,
-          "category": "activity|meal|transport|rest"
-        }
-      ],
-      "afternoon": [...],
-      "evening": [...],
-      "meals": {
-        "breakfast": "suggestion",
-        "lunch": "suggestion",
-        "dinner": "suggestion"
-      },
-      "travelTips": ["tip for this day"]
+  const paceRules = `PACE RULES (non-negotiable):
+- Every day has exactly ONE "anchor" (the thing that matters most); everything else is a bonus
+- Every day has at least one block with category "rest" (café, hotel break, onsen, park) of 1 hour or more
+- At most 3 "transport" blocks per day
+- Day 1 (arrival) evening stays light; the last day is lighter and leaves 3+ hours before an international flight
+- A theme-park or very long day gets a slow morning before and a light day after
+- A bus or train with 4 or fewer departures a day is a FIXED departure: build the day around it and say so in notes`
+
+  // Step 1: a short plan for the whole trip, so days written in parallel don't repeat or clash
+  const planPrompt = `You are an expert travel planner. Plan the shape of a ${days}-day trip: which area and which stops go on which day. Details come later.
+
+${tripBrief}
+${placesContext}
+
+Rules:
+- Every saved place appears on exactly one day; never repeat a stop across days
+- Group nearby places on the same day; the route should feel geographic
+- Number of stops per day follows the pace; fill gaps with well-chosen local spots per the "added places" mix
+
+${paceRules}
+- Estimate a realistic per-person daily cost (activities + meals + local transport, no accommodation) for the ${trip.priceRange} tier, in Singapore dollars (S$)
+
+Return ONLY valid JSON:
+{"overview":"2-3 sentence trip summary","generalTips":["tip","tip","tip"],"totalEstimatedCost":"~S$XX–XX per person / day",
+ "days":[{"day":1,"date":"YYYY-MM-DD","theme":"Day theme","area":"Neighbourhood(s)","anchor":"The one thing that matters today","stops":["Place, in visiting order"],"backups":{"rain":"Indoor alternative","tired":"Low-effort alternative"}}]}`
+
+  type PlanDay = { day: number; date: string; theme: string; area?: string; anchor?: string; stops?: string[]; backups?: ItineraryDay['backups'] }
+  type Plan = { overview?: string; generalTips?: string[]; totalEstimatedCost?: string; days: PlanDay[] }
+
+  async function ask<T>(model: string, maxTokens: number, prompt: string): Promise<T> {
+    const response = await client.messages.create({ model, max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] })
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
+    try { return JSON.parse(text) as T } catch {
+      const match = text.match(/\{[\s\S]*\}/)
+      if (!match) throw new Error('AI did not return valid JSON. Try regenerating.')
+      return JSON.parse(match[0]) as T
     }
-  ]
-}`
+  }
+
+  // Step 2: one day, in full detail, following its slot in the plan
+  function dayPrompt(d: PlanDay, plan: Plan): string {
+    const others = plan.days.filter((x) => x.day !== d.day).map((x) => `Day ${x.day}: ${(x.stops ?? []).join(', ')}`).join('\n')
+    return `You are an expert travel planner. Write day ${d.day} of ${days} of this trip in full detail.
+
+${tripBrief}
+THIS DAY'S PLAN:
+- Date: ${d.date}
+- Theme: ${d.theme}${d.area ? `\n- Area: ${d.area}` : ''}
+- Anchor: ${d.anchor ?? 'pick the one thing that matters most'}
+- Stops, in order: ${(d.stops ?? []).join(', ') || 'choose fitting local spots'}
+
+OTHER DAYS (don't use these stops today):
+${others || 'none'}
+
+Rules:
+- Morning, afternoon and evening blocks with specific times, starting around ${dayStart}${d.day === 1 ? ' (or after arrival)' : ''}
+- Add travel time between stops (walking or transit), meals timed around activities, booking flags and best visiting times
+
+${paceRules}
+- Estimate a realistic per-person cost for the day in S$
+
+Return ONLY valid JSON for this one day:
+{"day":${d.day},"date":"${d.date}","theme":"${d.theme.replace(/"/g, "'")}","estimatedCost":"~S$XX pp",
+ "morning":[{"time":"9:00 AM","activity":"Activity name","place":"Specific place/address","duration":"2 hours","notes":"Optional note","bookingRequired":false,"category":"activity|meal|transport|rest"}],
+ "afternoon":[],"evening":[],
+ "meals":{"breakfast":"suggestion","lunch":"suggestion","dinner":"suggestion"},
+ "travelTips":["tip for this day"]}`
+  }
 
   try {
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 16384,
-      messages: [{ role: 'user', content: prompt }],
-    })
-
-    const text = response.content[0].type === 'text' ? response.content[0].text : ''
-    if (!text) throw new Error('Empty response from AI')
-
-    let raw: { overview: string; generalTips: string[]; days: ItineraryDay[]; totalEstimatedCost?: string }
-    try {
-      raw = JSON.parse(text)
-    } catch {
-      const jsonMatch = text.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) throw new Error('AI did not return valid JSON. Try regenerating.')
-      raw = JSON.parse(jsonMatch[0])
+    const plan = await ask<Plan>('claude-sonnet-4-6', 4000, planPrompt)
+    if (!Array.isArray(plan.days) || plan.days.length === 0) {
+      throw new Error('Itinerary plan came back empty. Try regenerating.')
     }
+    const planDays = plan.days.slice(0, days)
 
-    if (!Array.isArray(raw.days) || raw.days.length === 0) {
-      throw new Error('Itinerary response was incomplete. Try regenerating.')
-    }
+    // All days at once: total time is the plan plus the slowest single day, not the sum of them
+    const writeDay = (d: PlanDay) => ask<ItineraryDay>('claude-haiku-4-5', 3000, dayPrompt(d, plan))
+    const detailed = await Promise.all(planDays.map(async (d) => {
+      let day: ItineraryDay
+      try { day = await writeDay(d) } catch { day = await writeDay(d) } // one retry per day
+      return enforcePace({
+        ...day,
+        day: d.day,
+        date: d.date || day.date,
+        theme: d.theme || day.theme,
+        anchor: d.anchor || day.anchor,
+        backups: d.backups ?? day.backups,
+      })
+    }))
 
     const itinerary: GeneratedItinerary = {
       tripId: trip.id,
       destination: trip.destination,
       totalDays: days,
-      overview: raw.overview ?? '',
-      days: raw.days.map(enforcePace),
-      generalTips: raw.generalTips ?? [],
-      totalEstimatedCost: raw.totalEstimatedCost,
+      overview: plan.overview ?? '',
+      days: detailed,
+      generalTips: plan.generalTips ?? [],
+      totalEstimatedCost: plan.totalEstimatedCost,
     }
 
     return NextResponse.json({ itinerary })
