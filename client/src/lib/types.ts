@@ -118,6 +118,8 @@ export interface ItineraryTimeBlock {
   notes?: string
   bookingRequired?: boolean
   category: 'activity' | 'meal' | 'transport' | 'rest'
+  /** Board card this block visits, when it came from one */
+  cardId?: string
 }
 
 export interface ItineraryDay {

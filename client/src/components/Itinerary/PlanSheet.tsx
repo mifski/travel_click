@@ -7,6 +7,7 @@ import { X } from 'lucide-react'
 import { useTripStore } from '@/lib/store'
 import { getCategoryFromTags } from '@/lib/categories'
 import { getDayCount } from '@/lib/utils'
+import { tripCapacity } from '@/lib/decide'
 import { DISCOVERY_LABELS, type PinPriority, type TripPace, type TripDiscovery, type TravelCard } from '@/lib/types'
 
 const INK = '#2c1810'
@@ -189,7 +190,9 @@ function Sheet({ tripId, onClose, onPlan }: { tripId: string; onClose: () => voi
         </div>
 
         <div className="flex items-center justify-between gap-3" style={{ padding: '12px 22px calc(16px + env(safe-area-inset-bottom))', borderTop: '1px solid rgba(44,24,16,.1)' }}>
-          <span style={{ fontSize: 12, color: '#7a5a40' }}>{mustCount} must go, {maybeCount} if they fit</span>
+          <span role="status" style={{ fontSize: 12, color: mustCount > tripCapacity(trip) ? '#c94040' : '#7a5a40' }}>
+            {mustCount} must go, {maybeCount} if they fit · room for about {tripCapacity(trip)} stops
+          </span>
           <button type="submit" className="pill-ink pill-lift font-semibold" style={{ padding: '12px 22px', borderRadius: 12, fontSize: 14 }}>
             Plan my trip ✦
           </button>

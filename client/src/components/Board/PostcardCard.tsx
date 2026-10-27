@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { TravelCard, CardSource } from '@/lib/types'
+import type { TravelCard, CardSource, PinPriority } from '@/lib/types'
 import { getCategoryFromTags } from '@/lib/categories'
+import { nextPriority } from '@/lib/decide'
 import { X, ExternalLink, MapPin, Copy, Check, Globe } from 'lucide-react'
 import { PinPassport } from './PinPassport'
 
@@ -37,13 +38,25 @@ function hashId(id: string): number {
   return Math.abs(h)
 }
 
+/* Plan stamps, same words as the plan sheet: red ink, pencil, faded ink */
+const STAMPS: Record<PinPriority, { label: string; color: string; border: string; rot: number }> = {
+  must:  { label: 'MUST GO',    color: '#c94040', border: '2.5px solid #c94040', rot: -9 },
+  maybe: { label: 'IF IT FITS', color: '#6b625a', border: '2px dashed #6b625a', rot: 6 },
+  skip:  { label: 'SKIP',       color: '#2c1810', border: '2px solid #2c1810', rot: -4 },
+}
+
 interface Props {
   card: TravelCard
   onRemove?: (id: string) => void
+  /** Explicit plan choice; undefined = not chosen yet (planned as "if it fits") */
+  priority?: PinPriority
+  onPriority?: (priority: PinPriority) => void
+  /** Itinerary days this card landed on */
+  days?: number[]
   style?: React.CSSProperties
 }
 
-export function PostcardCard({ card, onRemove, style }: Props) {
+export function PostcardCard({ card, onRemove, priority, onPriority, days, style }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied]     = useState(false)
   const [imgFailed, setImgFailed] = useState(false)
@@ -74,10 +87,37 @@ export function PostcardCard({ card, onRemove, style }: Props) {
     <>
       {/* ── Paper photo print ── */}
       <div
-        style={style}
-        className="paper-print w-full select-none cursor-pointer"
+        style={{ ...style, ...(priority === 'skip' ? { opacity: 0.5, filter: 'grayscale(.7)' } : null) }}
+        className="paper-print group w-full select-none cursor-pointer"
         onClick={() => setExpanded(true)}
       >
+        {onPriority && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onPriority(priority ? nextPriority(priority) : 'must') }}
+            onPointerDown={(e) => e.stopPropagation()}
+            aria-label={`Plan choice: ${priority ? STAMPS[priority].label.toLowerCase() : 'not chosen'}. Change it for ${card.title}`}
+            title="Stamp: must go → if it fits → skip"
+            className={`absolute z-[2] font-display ${priority ? '' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
+            style={priority ? {
+              top: 18, right: 16, padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 900, letterSpacing: '.12em',
+              color: STAMPS[priority].color, border: STAMPS[priority].border,
+              background: 'rgba(255,254,249,.82)', transform: `rotate(${STAMPS[priority].rot}deg)`,
+            } : {
+              top: 18, right: 16, padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 800, letterSpacing: '.12em',
+              color: 'rgba(44,24,16,.68)', border: '1.5px dashed rgba(44,24,16,.4)', background: 'rgba(255,254,249,.9)',
+            }}
+          >
+            {priority ? STAMPS[priority].label : 'STAMP'}
+          </button>
+        )}
+        {days && days.length > 0 && (
+          <span
+            className="absolute z-[2] font-extrabold"
+            style={{ bottom: -9, left: 14, padding: '3px 9px', borderRadius: 999, fontSize: 9.5, letterSpacing: '.12em', background: '#2c1810', color: '#c9a84c' }}
+          >
+            DAY {days.join(' · ')}
+          </span>
+        )}
         {tape && (
           <span
             aria-hidden="true"
@@ -259,6 +299,29 @@ export function PostcardCard({ card, onRemove, style }: Props) {
                   <div className="flex items-center gap-1.5 mb-4">
                     <Globe size={11} style={{ color: '#a86030' }} />
                     <p className="font-hand" style={{ fontSize: 16, color: 'rgba(44,24,16,.68)' }}>via @{card.creator}</p>
+                  </div>
+                )}
+
+                {onPriority && (
+                  <div role="radiogroup" aria-label="Plan choice" className="flex gap-2 mb-4">
+                    {(Object.keys(STAMPS) as PinPriority[]).map((p) => {
+                      const on = priority === p
+                      return (
+                        <button
+                          key={p}
+                          role="radio"
+                          aria-checked={on}
+                          onClick={() => onPriority(p)}
+                          className="font-display flex-1 py-1.5 rounded"
+                          style={{
+                            fontSize: 11.5, fontWeight: 900, letterSpacing: '.1em', border: STAMPS[p].border,
+                            color: on ? '#fffef9' : STAMPS[p].color, background: on ? STAMPS[p].color : 'transparent',
+                          }}
+                        >
+                          {STAMPS[p].label}
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
 

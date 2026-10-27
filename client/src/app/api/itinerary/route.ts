@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { TripContext, GeneratedItinerary, ItineraryDay, TripPace, BookedFlight, TripDiscovery, TripStay } from '@/lib/types'
 import { getDayCount } from '@/lib/utils'
 import { rateLimit, clamp } from '@/lib/api-guard'
+import type { PlannerPin } from '@/lib/decide'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -39,6 +40,13 @@ function enforcePace(day: ItineraryDay): ItineraryDay {
 }
 
 type Block = ItineraryDay['morning'][number]
+
+/** Keep only cardIds that are on the board, so a made-up id never shows as a broken link */
+function linkPins(day: ItineraryDay, ids: Set<string>): ItineraryDay {
+  const fix = (blocks?: Block[]) =>
+    (blocks ?? []).map(({ cardId, ...b }) => (cardId && ids.has(cardId) ? { ...b, cardId } : b))
+  return { ...day, morning: fix(day.morning), afternoon: fix(day.afternoon), evening: fix(day.evening) }
+}
 
 /** "9:30 AM" / "21:05" → minutes after midnight, or null if it isn't a clock time */
 function toMinutes(t: string | undefined): number | null {
@@ -120,11 +128,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Trips longer than 30 days aren’t supported yet — split it into legs.' }, { status: 400 })
   }
 
-  const list = (v: unknown): string[] => (Array.isArray(v) ? v : []).slice(0, 60).map((p: unknown) => clamp(p, 160)).filter(Boolean)
-  // Pins come split by priority from the plan form; older clients send one savedPlaces list (all must-go)
-  const mustGo = body.mustGo || body.maybe ? list(body.mustGo) : list(body.savedPlaces)
-  const maybe = list(body.maybe)
+  // Pins arrive with their plan choice and context; skipped pins are never sent
+  const pins: PlannerPin[] = (Array.isArray(body.pins) ? body.pins as PlannerPin[] : [])
+    .filter((p) => p && typeof p.id === 'string' && (p.priority === 'must' || p.priority === 'maybe'))
+    .slice(0, 60)
+    .map((p) => ({
+      id: clamp(p.id, 40).replace(/[^\w-]/g, ''),
+      name: clamp(p.name, 160),
+      priority: p.priority,
+      description: clamp(p.description, 200),
+      tags: (Array.isArray(p.tags) ? p.tags : []).slice(0, 6).map((t) => clamp(t, 30)),
+    }))
+    .filter((p) => p.id && p.name.trim())
+  const pinIds = new Set(pins.map((p) => p.id))
+  const pinLine = (p: PlannerPin) =>
+    `[${p.id}] ${p.name}${p.description ? ` — ${p.description}` : ''}${p.tags?.length ? ` (${p.tags.join(', ')})` : ''}`
+  const mustGo = pins.filter((p) => p.priority === 'must').map(pinLine)
+  const maybePins = pins.filter((p) => p.priority === 'maybe')
+  const maybe = maybePins.map(pinLine)
   const savedPlaces = [...mustGo, ...maybe]
+  const boardNotes = clamp((Array.isArray(body.notes) ? body.notes : []).map((n: unknown) => clamp(n, 200)).join(' | '), 600)
   const instructions = clamp(body.instructions, 600)
   const DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/
   const flightList = (Array.isArray(body.flights) ? body.flights as BookedFlight[] : [])
@@ -162,6 +185,9 @@ export async function POST(req: NextRequest) {
   const placesContext = savedPlaces.length
     ? `${mustGo.length ? `MUST-GO PLACES (every one goes in the plan):\n${mustGo.map((p) => `  • ${p}`).join('\n')}\n` : ''}${maybe.length ? `\nIF THEY FIT (optional; choose only the ones that suit the route, pace and variety, and leave the rest out; never stack similar spots, e.g. no more than one ramen place a day):\n${maybe.map((p) => `  • ${p}`).join('\n')}\n` : ''}${fillHint}`
     : `No specific places have been saved yet. Design a complete ${days}-day itinerary featuring ${trip.destination}'s top attractions, local dining, and authentic experiences.`
+  const pinRule = savedPlaces.length
+    ? `- Saved places carry an id in [brackets]: write them in stops as "[id] Name" so they stay linked`
+    : ''
 
   const tripBrief = `TRIP DETAILS:
 - Destination: ${trip.destination}, ${trip.country}
@@ -181,7 +207,7 @@ BOOKED FLIGHTS (fixed, plan around them):
 ${flights.join('\n')}
 - Arrival day: nothing before landing + 2 hours (immigration, transfer, bag drop); keep that evening light
 - Departure day: be at the airport 3 hours before an international departure, plus travel time; no activities after that
-` : ''}${instructions?.trim() ? `\nTRAVELLER'S SPECIAL REQUESTS (high priority — shape the whole plan around these):\n${instructions.trim()}\n` : ''}`
+` : ''}${boardNotes ? `\nTRAVELLER'S BOARD NOTES (respect these): ${boardNotes}\n` : ''}${instructions?.trim() ? `\nTRAVELLER'S SPECIAL REQUESTS (high priority — shape the whole plan around these):\n${instructions.trim()}\n` : ''}`
 
   const paceRules = `PACE RULES (non-negotiable):
 - Every day has exactly ONE "anchor" (the thing that matters most); everything else is a bonus
@@ -201,6 +227,7 @@ Rules:
 - Every must-go place appears on exactly one day; optional places only where they fit; never repeat a stop across days
 - Group nearby places on the same day; the route should feel geographic
 - Number of stops per day follows the pace; fill gaps with well-chosen local spots per the "added places" mix
+${pinRule}
 
 ${paceRules}
 - Estimate a realistic per-person daily cost (activities + meals + local transport, no accommodation) for the ${trip.priceRange} tier, in Singapore dollars (S$)
@@ -260,13 +287,14 @@ ${others || 'none'}
 Rules:
 - Morning, afternoon and evening blocks with specific times, starting around ${dayStart}${d.day === 1 ? ' (or after arrival)' : ''}
 - Add travel time between stops (walking or transit), meals timed around activities, booking flags and best visiting times
+- A block that visits a stop marked [id] sets "cardId" to that id; other blocks leave it out
 
 ${paceRules}
 - Estimate a realistic per-person cost for the day in S$
 
 Return ONLY valid JSON for this one day:
 {"day":${d.day},"date":"${d.date}","theme":"${d.theme.replace(/"/g, "'")}","estimatedCost":"~S$XX pp",
- "morning":[{"time":"9:00 AM","activity":"Activity name","place":"Specific place/address","duration":"2 hours","notes":"Optional note","bookingRequired":false,"category":"activity|meal|transport|rest"}],
+ "morning":[{"time":"9:00 AM","activity":"Activity name","place":"Specific place/address","duration":"2 hours","notes":"Optional note","bookingRequired":false,"category":"activity|meal|transport|rest","cardId":"id, only for a saved place"}],
  "afternoon":[],"evening":[],
  "meals":{"breakfast":"suggestion","lunch":"suggestion","dinner":"suggestion"},
  "travelTips":["tip for this day"],
@@ -294,9 +322,13 @@ ${flightNote(target.date)}${stayNote(target.date)}
 
 OTHER DAYS (don't use these stops):
 ${others || 'none'}
-
+${savedPlaces.length ? `
+SAVED PLACES (id in brackets):
+${savedPlaces.map((p) => `  • ${p}`).join('\n')}
+` : ''}
 Rules:
 - Make the change asked for; keep every other part of the day that doesn't need to move
+- Keep each block's "cardId"; a block that visits a saved place sets "cardId" to its id
 - Keep times realistic, with travel time between stops
 ${paceRules}
 - Always return an anchor and both backups (rain and tired)
@@ -304,7 +336,7 @@ ${paceRules}
 Return ONLY valid JSON for this one day, in the same shape as the day above, including "anchor" and "backups".`
     try {
       const day = await ask<ItineraryDay>('claude-haiku-4-5', 3000, prompt)
-      const fixed = enforcePace(fitAroundFlights({
+      const fixed = linkPins(enforcePace(fitAroundFlights({
         ...day,
         day: target.day,
         date: target.date,
@@ -313,7 +345,7 @@ Return ONLY valid JSON for this one day, in the same shape as the day above, inc
         backups: hasBackups(day.backups) ? day.backups : target.backups,
         meals: day.meals ?? target.meals,
         travelTips: day.travelTips ?? target.travelTips,
-      }, flightList))
+      }, flightList)), pinIds)
       return NextResponse.json({ day: fixed })
     } catch (err) {
       console.error('Day fix error:', err)
@@ -336,14 +368,14 @@ Return ONLY valid JSON for this one day, in the same shape as the day above, inc
     const detailed = await Promise.all(planDays.map(async (d) => {
       let day: ItineraryDay
       try { day = await writeDay(d) } catch { day = await writeDay(d) } // one retry per day
-      return enforcePace(fitAroundFlights({
+      return linkPins(enforcePace(fitAroundFlights({
         ...day,
         day: d.day,
         date: d.date || day.date,
         theme: d.theme || day.theme,
         anchor: d.anchor || day.anchor,
         backups: hasBackups(d.backups) ? d.backups : day.backups,
-      }, flightList))
+      }, flightList)), pinIds)
     }))
 
     console.log(`Itinerary timing: ${days} days, plan ${planMs}ms, total ${Date.now() - t0}ms`)
@@ -356,13 +388,10 @@ Return ONLY valid JSON for this one day, in the same shape as the day above, inc
       days: detailed,
       generalTips: plan.generalTips ?? [],
       totalEstimatedCost: plan.totalEstimatedCost,
-      // Left out = an optional pin whose name shows up in no day of the plan (the model's own list rewords names)
-      unusedPins: maybe
-        .map((m) => m.split(',')[0].trim())
-        .filter((name) => {
-          const n = name.toLowerCase()
-          return n && !planDays.some((d) => [...(d.stops ?? []), d.anchor ?? ''].filter((st) => st.trim().length > 2).some((st) => st.toLowerCase().includes(n) || n.includes(st.toLowerCase())))
-        })
+      // Left out = an optional pin no block links to
+      unusedPins: maybePins
+        .filter((p) => !detailed.some((d) => [...(d.morning ?? []), ...(d.afternoon ?? []), ...(d.evening ?? [])].some((b) => b.cardId === p.id)))
+        .map((p) => p.name.split(',')[0].trim())
         .slice(0, 30),
     }
 

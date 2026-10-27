@@ -7,7 +7,8 @@ import Link from 'next/link'
 import { X, BedDouble, Stamp, Luggage, Wallet, Link2, StickyNote, Plane, type LucideIcon } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useTripStore } from '@/lib/store'
-import { CollageBoard } from '@/components/Board/CollageBoard'
+import { CollageBoard, MUSTS_FILTER } from '@/components/Board/CollageBoard'
+import { mustCards, tripCapacity, placedDays, unplacedMusts } from '@/lib/decide'
 import { LinkExtractor } from '@/components/Board/LinkExtractor'
 import { AccommodationCards } from '@/components/Accommodations/AccommodationCards'
 import { TravelBrief } from '@/components/Brief/TravelBrief'
@@ -54,6 +55,7 @@ export default function BoardPage() {
   const addNote = useTripStore((s) => s.addNote)
   const saveItinerary = useTripStore((s) => s.saveItinerary)
   const hydrateCards = useTripStore((s) => s.hydrateCards)
+  const priorities = useTripStore((s) => s.pinPriorities[tripId])
 
   const [activeTool, setActiveTool] = useState<ToolTab>(null)
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
@@ -116,6 +118,12 @@ export default function BoardPage() {
 
   const presentGroups = new Set(cards.map((c) => getChipGroup(getCategoryFromTags(c.tags).key)))
   const chips = CHIP_GROUPS.filter((g) => presentGroups.has(g.key))
+
+  const musts = mustCards(cards, priorities)
+  const capacity = tripCapacity(trip)
+  const overCapacity = musts.length > capacity
+  const placed = placedDays(itinerary)
+  const missing = unplacedMusts(cards, priorities, itinerary)
 
   function handleAddNote() {
     const note = addNote(tripId)
@@ -323,6 +331,18 @@ export default function BoardPage() {
           >
             ALL · {cards.length}
           </button>
+          {musts.length > 0 && (
+            <button
+              className="luggage-tag"
+              onClick={() => setActiveFilter(activeFilter === MUSTS_FILTER ? null : MUSTS_FILTER)}
+              aria-pressed={activeFilter === MUSTS_FILTER}
+              style={activeFilter === MUSTS_FILTER
+                ? { background: '#c94040', color: '#fffef9', boxShadow: '0 5px 12px -3px rgba(201,64,64,.45)' }
+                : { background: '#fffef9', color: '#c94040', boxShadow: '0 4px 10px -3px rgba(44,24,16,.25)', transform: 'rotate(-1.5deg)' }}
+            >
+              MUST GO · {musts.length}
+            </button>
+          )}
           {chips.map((chip) => {
             const active = activeFilter === chip.key
             return (
@@ -344,6 +364,17 @@ export default function BoardPage() {
           </span>
         </div>
 
+        {/* ── Must-go pins the binder dropped ── */}
+        {missing.length > 0 && (
+          <div className="relative z-[3] flex items-center flex-wrap" style={{ gap: 10, margin: '12px var(--gutter) 0', fontSize: 12.5, color: '#2c1810' }}>
+            <span className="font-extrabold" style={{ fontSize: 10, letterSpacing: '.16em', color: '#c94040' }}>NOT IN THE PLAN</span>
+            <span>{missing.map((c) => c.title).join(', ')}</span>
+            <Link href={`/board/${tripId}/itinerary?include=1`} className="font-semibold underline underline-offset-2 hover:text-[#c94040]">
+              Refine to include ✦
+            </Link>
+          </div>
+        )}
+
         {/* ── Collage ── */}
         <div className={compact ? '' : 'overflow-x-auto'} style={{ padding: '18px var(--gutter) 0' }}>
           <CollageBoard
@@ -352,6 +383,7 @@ export default function BoardPage() {
             cards={cards}
             notes={notes}
             activeFilter={activeFilter}
+            placed={placed}
             freshNoteId={freshNoteId}
             onOpenPin={() => setPinOpen(true)}
           />
@@ -380,14 +412,25 @@ export default function BoardPage() {
               </button>
             ))}
           </div>
-          <button
-            onClick={goItinerary}
-            disabled={generating}
-            className="pill-ink pill-lift flex items-center justify-center gap-2 font-semibold disabled:opacity-60"
-            style={{ padding: '14px 28px', borderRadius: 12, fontSize: 14.5, margin: compact ? '0 var(--gutter)' : 0 }}
-          >
-            {itinerary ? 'Open my binder ✦' : 'Assemble my binder ✦'}
-          </button>
+          <div className="flex flex-col sm:flex-row sm:items-center" style={{ gap: '6px 14px', margin: compact ? '0 var(--gutter)' : 0 }}>
+            {cards.length > 0 && (
+              <span
+                role="status"
+                title="Days × the pace's top stop count; arrival and departure days count half"
+                style={{ fontSize: 12, fontWeight: 600, textAlign: 'center', color: overCapacity ? '#c94040' : 'rgba(44,24,16,.68)' }}
+              >
+                {musts.length} must go · room for about {capacity} stops
+              </span>
+            )}
+            <button
+              onClick={goItinerary}
+              disabled={generating}
+              className="pill-ink pill-lift flex items-center justify-center gap-2 font-semibold disabled:opacity-60"
+              style={{ padding: '14px 28px', borderRadius: 12, fontSize: 14.5 }}
+            >
+              {itinerary ? 'Open my binder ✦' : 'Assemble my binder ✦'}
+            </button>
+          </div>
         </div>
       </div>
 

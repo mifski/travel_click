@@ -8,6 +8,8 @@ import { StickyNoteCard } from './StickyNoteCard'
 import { useTripStore } from '@/lib/store'
 import { getCategoryFromTags, getChipGroup } from '@/lib/categories'
 
+export const MUSTS_FILTER = 'musts'
+
 /* Masonry columns — widths + downward stagger per the scrapbook layout */
 const COLUMNS = [
   { width: 288, offset: 0 },
@@ -77,8 +79,10 @@ interface Props {
   trip: TripContext
   cards: TravelCard[]
   notes: StickyNote[]
-  /** chip-group key to highlight; null = show all */
+  /** chip-group key to highlight, or MUSTS_FILTER; null = show all */
   activeFilter: string | null
+  /** cardId → itinerary days it landed on */
+  placed?: Record<string, number[]>
   /** id of a note that was just created (opens focused) */
   freshNoteId?: string | null
   onOpenPin: () => void
@@ -86,8 +90,10 @@ interface Props {
   compact?: boolean
 }
 
-export function CollageBoard({ trip, cards, notes, activeFilter, freshNoteId, onOpenPin, compact }: Props) {
+export function CollageBoard({ trip, cards, notes, activeFilter, placed, freshNoteId, onOpenPin, compact }: Props) {
   const removeCard = useTripStore((s) => s.removeCard)
+  const priorities = useTripStore((s) => s.pinPriorities[trip.id])
+  const setPinPriority = useTripStore((s) => s.setPinPriority)
   const updateCardPosition = useTripStore((s) => s.updateCardPosition)
   const updateNotePosition = useTripStore((s) => s.updateNotePosition)
   const updateNoteText = useTripStore((s) => s.updateNoteText)
@@ -125,7 +131,9 @@ export function CollageBoard({ trip, cards, notes, activeFilter, freshNoteId, on
           ))}
           {col.map((card) => {
             const group = getChipGroup(getCategoryFromTags(card.tags).key)
-            const dimmed = !!activeFilter && group !== activeFilter
+            const dimmed = activeFilter === MUSTS_FILTER
+              ? priorities?.[card.id] !== 'must'
+              : !!activeFilter && group !== activeFilter
             return (
               <Draggable
                 key={card.id}
@@ -137,7 +145,13 @@ export function CollageBoard({ trip, cards, notes, activeFilter, freshNoteId, on
                 onCommit={(x, y) =>
                   updateCardPosition(trip.id, card.id, { ...card.pinPosition, x, y })}
               >
-                <PostcardCard card={card} onRemove={(id) => removeCard(trip.id, id)} />
+                <PostcardCard
+                  card={card}
+                  onRemove={(id) => removeCard(trip.id, id)}
+                  priority={priorities?.[card.id]}
+                  onPriority={(p) => setPinPriority(trip.id, card.id, p)}
+                  days={placed?.[card.id]}
+                />
               </Draggable>
             )
           })}

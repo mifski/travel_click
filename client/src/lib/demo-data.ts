@@ -182,13 +182,13 @@ export function buildDemoItinerary(trip: TripContext): GeneratedItinerary {
         theme: 'Old Tokyo: Asakusa & the Skytree',
         estimatedCost: '~S$120 pp',
         morning: [
-          { time: '8:00 AM', activity: 'Sensō-ji Temple before the crowds', place: 'Senso-ji, 2-3-1 Asakusa, Taito City', duration: '1.5 hours', notes: 'Main hall opens 6 AM. Arrive early for incense and quiet photos', bookingRequired: false, category: 'activity' },
+          { time: '8:00 AM', activity: 'Sensō-ji Temple before the crowds', place: 'Senso-ji, 2-3-1 Asakusa, Taito City', duration: '1.5 hours', notes: 'Main hall opens 6 AM. Arrive early for incense and quiet photos', bookingRequired: false, category: 'activity', cardId: 'demo-card-0' },
           { time: '9:30 AM', activity: 'Snack crawl down Nakamise-dōri', place: 'Nakamise Shopping Street, Asakusa', duration: '1 hour', notes: 'Try age-manju (fried bean-paste buns) and fresh senbei', bookingRequired: false, category: 'meal' },
         ],
         afternoon: [
           { time: '12:00 PM', activity: 'Tempura lunch at a 130-year-old counter', place: 'Daikokuya Tempura, Asakusa', duration: '1 hour', notes: 'Queue moves fast; go before 12:30', bookingRequired: false, category: 'meal' },
           { time: '2:00 PM', activity: 'Walk the Sumida River to the Skytree', place: 'Sumida River Walk → Tokyo Skytree', duration: '45 min', notes: 'Flat riverside path with skyline views', bookingRequired: false, category: 'transport' },
-          { time: '3:00 PM', activity: 'Tokyo Skytree observation deck', place: 'Tokyo Skytree, 1-1-2 Oshiage, Sumida', duration: '2 hours', notes: 'Book the 350 m Tembo Deck online to skip the queue', bookingRequired: true, category: 'activity' },
+          { time: '3:00 PM', activity: 'Tokyo Skytree observation deck', place: 'Tokyo Skytree, 1-1-2 Oshiage, Sumida', duration: '2 hours', notes: 'Book the 350 m Tembo Deck online to skip the queue', bookingRequired: true, category: 'activity', cardId: 'demo-card-3' },
         ],
         evening: [
           { time: '6:30 PM', activity: 'Izakaya dinner under the train tracks', place: 'Hoppy Street, Asakusa', duration: '2 hours', notes: 'Order hoppy (the local low-alcohol beer) like a regular', bookingRequired: false, category: 'meal' },
@@ -202,16 +202,16 @@ export function buildDemoItinerary(trip: TripContext): GeneratedItinerary {
         theme: 'Forest Shrines & Shibuya Neon',
         estimatedCost: '~S$135 pp',
         morning: [
-          { time: '9:00 AM', activity: 'Meiji Shrine forest walk', place: 'Meiji Jingu, 1-1 Yoyogikamizonocho, Shibuya', duration: '1.5 hours', notes: 'Write a wish on an ema plaque; sake barrel wall photo stop', bookingRequired: false, category: 'activity' },
+          { time: '9:00 AM', activity: 'Meiji Shrine forest walk', place: 'Meiji Jingu, 1-1 Yoyogikamizonocho, Shibuya', duration: '1.5 hours', notes: 'Write a wish on an ema plaque; sake barrel wall photo stop', bookingRequired: false, category: 'activity', cardId: 'demo-card-2' },
           { time: '10:45 AM', activity: 'Stroll Takeshita Street & Omotesandō', place: 'Harajuku', duration: '1.5 hours', notes: 'Crepes on Takeshita, architecture on Omotesandō', bookingRequired: false, category: 'activity' },
         ],
         afternoon: [
-          { time: '1:00 PM', activity: 'Picnic in Shinjuku Gyoen', place: 'Shinjuku Gyoen National Garden', duration: '2 hours', notes: '¥500 entry; grab depachika bento from Takashimaya first', bookingRequired: false, category: 'rest' },
-          { time: '3:30 PM', activity: 'Shibuya Crossing + Hachikō statue', place: 'Shibuya Scramble Crossing', duration: '1 hour', notes: 'Best aerial view: Shibuya Sky or Mag\'s Park rooftop', bookingRequired: false, category: 'activity' },
+          { time: '1:00 PM', activity: 'Picnic in Shinjuku Gyoen', place: 'Shinjuku Gyoen National Garden', duration: '2 hours', notes: '¥500 entry; grab depachika bento from Takashimaya first', bookingRequired: false, category: 'rest', cardId: 'demo-card-6' },
+          { time: '3:30 PM', activity: 'Shibuya Crossing + Hachikō statue', place: 'Shibuya Scramble Crossing', duration: '1 hour', notes: 'Best aerial view: Shibuya Sky or Mag\'s Park rooftop', bookingRequired: false, category: 'activity', cardId: 'demo-card-1' },
         ],
         evening: [
-          { time: '6:00 PM', activity: 'Solo-booth ramen experience', place: 'Ichiran Ramen, Shibuya', duration: '45 min', notes: 'Order extra kaedama (noodle refill) from the booth', bookingRequired: false, category: 'meal' },
-          { time: '8:00 PM', activity: 'Bar-hop the Golden Gai alleys', place: 'Golden Gai, Shinjuku', duration: '3 hours', notes: 'Most bars charge a ¥500-1000 seat fee; cash only', bookingRequired: false, category: 'activity' },
+          { time: '6:00 PM', activity: 'Solo-booth ramen experience', place: 'Ichiran Ramen, Shibuya', duration: '45 min', notes: 'Order extra kaedama (noodle refill) from the booth', bookingRequired: false, category: 'meal', cardId: 'demo-card-5' },
+          { time: '8:00 PM', activity: 'Bar-hop the Golden Gai alleys', place: 'Golden Gai, Shinjuku', duration: '3 hours', notes: 'Most bars charge a ¥500-1000 seat fee; cash only', bookingRequired: false, category: 'activity', cardId: 'demo-card-4' },
         ],
         meals: { breakfast: 'Konbini onigiri + coffee', lunch: 'Depachika bento picnic', dinner: 'Ichiran tonkotsu ramen' },
         travelTips: ['Harajuku → Shinjuku Gyoen → Shibuya is one short loop on the JR Yamanote line.'],
@@ -222,11 +222,11 @@ export function buildDemoItinerary(trip: TripContext): GeneratedItinerary {
         theme: 'Ghibli Whimsy & Electric Town',
         estimatedCost: '~S$150 pp',
         morning: [
-          { time: '10:00 AM', activity: 'Ghibli Museum', place: 'Ghibli Museum, 1-1-83 Shimorenjaku, Mitaka', duration: '2.5 hours', notes: 'Timed-entry tickets only. Buy on the 10th of the prior month', bookingRequired: true, category: 'activity' },
+          { time: '10:00 AM', activity: 'Ghibli Museum', place: 'Ghibli Museum, 1-1-83 Shimorenjaku, Mitaka', duration: '2.5 hours', notes: 'Timed-entry tickets only. Buy on the 10th of the prior month', bookingRequired: true, category: 'activity', cardId: 'demo-card-8' },
         ],
         afternoon: [
           { time: '1:00 PM', activity: 'Lunch & stroll in Kichijōji', place: 'Harmonica Yokocho, Kichijoji', duration: '1.5 hours', notes: 'Tiny post-war market lanes turned food stalls', bookingRequired: false, category: 'meal' },
-          { time: '3:30 PM', activity: 'Akihabara retro-game & anime dive', place: 'Akihabara Electric Town, Chiyoda', duration: '2.5 hours', notes: 'Super Potato for retro games; Yodobashi for everything else', bookingRequired: false, category: 'activity' },
+          { time: '3:30 PM', activity: 'Akihabara retro-game & anime dive', place: 'Akihabara Electric Town, Chiyoda', duration: '2.5 hours', notes: 'Super Potato for retro games; Yodobashi for everything else', bookingRequired: false, category: 'activity', cardId: 'demo-card-7' },
         ],
         evening: [
           { time: '7:00 PM', activity: 'Conveyor-belt sushi dinner', place: 'Uobei / Genki Sushi, Akihabara area', duration: '1 hour', notes: 'Order by tablet, plates arrive by bullet rail', bookingRequired: false, category: 'meal' },
@@ -268,6 +268,11 @@ export async function seedDemo(): Promise<string> {
     cards: { ...s.cards, [DEMO_TRIP_ID]: buildDemoCards() },
     notes: { ...s.notes, [DEMO_TRIP_ID]: s.notes[DEMO_TRIP_ID]?.length ? s.notes[DEMO_TRIP_ID] : [buildDemoNote()] },
     itineraries: { ...s.itineraries, [DEMO_TRIP_ID]: buildDemoItinerary(trip) },
+    // Sensō-ji, Skytree and Ghibli are must-go; Akihabara is skipped to show the faded stamp
+    pinPriorities: {
+      ...s.pinPriorities,
+      [DEMO_TRIP_ID]: { 'demo-card-0': 'must', 'demo-card-3': 'must', 'demo-card-8': 'must', 'demo-card-1': 'maybe', 'demo-card-7': 'skip' },
+    },
   }))
 
   return DEMO_TRIP_ID

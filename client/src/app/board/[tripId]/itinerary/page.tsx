@@ -13,6 +13,7 @@ import type { GeneratedItinerary, RealityReport, TripContext } from '@/lib/types
 import { BookByList, PaceControl } from '@/components/Itinerary/RealityPanel'
 import { PlanSheet } from '@/components/Itinerary/PlanSheet'
 import { planRequestBody } from '@/lib/plan-request'
+import { unplacedMusts } from '@/lib/decide'
 import { EMPTY_MARKS } from '@/lib/reality'
 import { formatDateRange } from '@/lib/utils'
 import { Printer, RotateCw } from 'lucide-react'
@@ -61,7 +62,16 @@ export default function ItineraryPage() {
   useEffect(() => {
     if (!mounted) return
     if (!trip && !isDemo) { router.replace('/boards'); return }
-    if (trip && !itinerary && !loading) setPlanOpen(true)
+    // "Refine to include" from the board's NOT IN THE PLAN line
+    const s = useTripStore.getState()
+    const missing = new URLSearchParams(window.location.search).has('include')
+      ? unplacedMusts(s.cards[tripId] ?? [], s.pinPriorities[tripId], itinerary)
+      : []
+    if (missing.length) {
+      router.replace(`/board/${tripId}/itinerary`)
+      void generate(`Include these must-go places: ${missing.map((c) => c.title).join(', ')}`)
+    }
+    else if (trip && !itinerary && !loading) setPlanOpen(true)
     else if (trip && itinerary && !report && !checking) void realityCheck(trip, itinerary)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, trip])
