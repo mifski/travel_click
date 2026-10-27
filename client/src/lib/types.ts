@@ -160,7 +160,13 @@ export interface BookingStub {
   bookBy?: string
   dateBasis: 'estimated' | 'unknown'
   sourceUrl?: string
+  /** How it's booked; walk-in-only items never become tickets */
+  how?: BookingChannel
+  /** Short venue name, so the same place on several days merges into one ticket */
+  venue?: string
 }
+
+export type BookingChannel = 'official-site' | 'phone' | 'agent' 
 
 export type StubStatus = 'to-book' | 'booked' | 'pay-on-day'
 
@@ -177,6 +183,8 @@ export interface RealityMarks {
   stubs: Record<string, StubStatus>
   facts: Record<string, string>
   dismissed: Record<string, true>
+  /** Confirmation numbers by ticket key (optional: older saved marks don't have it) */
+  confirmations?: Record<string, string>
 }
 
 /** Pin passport: the practical facts for one saved place. AI-sourced, so unverified. */

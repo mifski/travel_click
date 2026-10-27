@@ -1,6 +1,7 @@
 'use client'
 
-import type { ItineraryDay, RealityReport, RealityMarks, TripPace } from '@/lib/types'
+import type { ItineraryDay, RealityMarks, TripPace } from '@/lib/types'
+import { type Ticket, ticketStatus } from '@/lib/bookings'
 import type { DayReality } from '@/lib/reality'
 import { daysUntil, stubDeadline } from '@/lib/reality'
 import { PACE_MAX_STOPS } from '@/lib/decide'
@@ -25,7 +26,8 @@ interface Props {
   activeDay: number
   onDayChange: (idx: number) => void
   pace: TripPace
-  report?: RealityReport
+  tickets: Ticket[]
+  checkedAt?: string
   marks: RealityMarks
   checking: boolean
 }
@@ -34,7 +36,7 @@ interface Props {
  * The whole trip at a glance and the day navigation in one row of luggage tags:
  * date, anchor, how full the day is, its check status and the next booking deadline.
  */
-export function TripStrip({ days, realities, activeDay, onDayChange, pace, report, marks, checking }: Props) {
+export function TripStrip({ days, realities, activeDay, onDayChange, pace, tickets, checkedAt, marks, checking }: Props) {
   const maxStops = PACE_MAX_STOPS[pace]
 
   return (
@@ -49,9 +51,9 @@ export function TripStrip({ days, realities, activeDay, onDayChange, pace, repor
         const fill = Math.min(1, stops / maxStops)
         const over = stops > maxStops
 
-        const toBook = report?.stubs.filter((s) => s.day === d.day && (marks.stubs[s.key] ?? 'to-book') === 'to-book') ?? []
-        const next = report && toBook.length
-          ? Math.min(...toBook.map((s) => daysUntil(stubDeadline(s, report.checkedAt))))
+        const toBook = tickets.filter((t) => t.days.includes(d.day) && ticketStatus(t, marks) === 'to-book')
+        const next = checkedAt && toBook.length
+          ? Math.min(...toBook.map((t) => daysUntil(stubDeadline(t, checkedAt))))
           : null
 
         // Not checked with nothing to fix means facts are still unconfirmed

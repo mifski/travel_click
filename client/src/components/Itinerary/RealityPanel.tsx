@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import type { ItineraryDay, RealityReport, RealityMarks, BookingStub, StubStatus, TripPace, TripContext, TripDiscovery } from '@/lib/types'
+import type { ItineraryDay, RealityMarks, BookingStub, StubStatus, TripPace, TripContext, TripDiscovery } from '@/lib/types'
 import { DISCOVERY_LABELS } from '@/lib/types'
 import { useTripStore } from '@/lib/store'
 import { Star, Clock, Armchair, Umbrella, Coffee, Check, CalendarPlus, type LucideIcon } from 'lucide-react'
-import { type DayReality, checkAgainOn, daysUntil, sortStubs, stubDeadline, buildStubsIcs } from '@/lib/reality'
+import { type DayReality, checkAgainOn, daysUntil, stubDeadline, buildStubsIcs } from '@/lib/reality'
+import { type Ticket, sortTickets, ticketStatus } from '@/lib/bookings'
 
 const cream = (a: number) => `rgba(242,234,216,${a})`
 const GOLD = '#c9a84c'
@@ -64,14 +65,15 @@ export function PaceRibbon({ day }: { day: ItineraryDay }) {
 interface DayPanelProps {
   tripId: string
   reality: DayReality
-  stubs: BookingStub[]
+  stubs: Ticket[]
   checkedAt?: string
   statuses: Record<string, StubStatus>
+  confirmations?: Record<string, string>
   onFix: (fix: string) => void
   busy: boolean
 }
 
-export function DayRealityPanel({ tripId, reality, stubs, checkedAt, statuses, onFix, busy }: DayPanelProps) {
+export function DayRealityPanel({ tripId, reality, stubs, checkedAt, statuses, confirmations, onFix, busy }: DayPanelProps) {
   const markFactChecked = useTripStore((s) => s.markFactChecked)
   const dismissFinding = useTripStore((s) => s.dismissFinding)
   // Collapsed by default so the day's plan comes first; one line says what's waiting
@@ -171,7 +173,7 @@ export function DayRealityPanel({ tripId, reality, stubs, checkedAt, statuses, o
 
       {stubs.length > 0 && checkedAt && (
         <div className="flex flex-wrap" style={{ gap: 12, marginTop: 16 }}>
-          {stubs.map((s) => <TicketStub key={s.key} tripId={tripId} stub={s} checkedAt={checkedAt} status={statuses[s.key] ?? 'to-book'} />)}
+          {stubs.map((t) => <TicketStub key={t.key} tripId={tripId} ticket={t} checkedAt={checkedAt} status={t.entered ? 'booked' : statuses[t.key] ?? 'to-book'} confirmation={confirmations?.[t.key]} />)}
         </div>
       )}
       </div>)}
@@ -189,19 +191,43 @@ function dateLine(stub: BookingStub, checkedAt: string): string {
   return [stub.opensOn && `Opens ${stub.opensOn}`, stub.bookBy && `Book by ${stub.bookBy}`].filter(Boolean).join(' · ') + ' (estimated)'
 }
 
-export function TicketStub({ tripId, stub, checkedAt, status }: { tripId: string; stub: BookingStub; checkedAt: string; status: StubStatus }) {
+const HOW_LABEL: Record<string, string> = { 'official-site': 'Official site', phone: 'By phone', agent: 'Through an agent' }
+
+export function TicketStub({ tripId, ticket, checkedAt, status, confirmation }: {
+  tripId: string; ticket: Ticket; checkedAt: string; status: StubStatus; confirmation?: string
+}) {
   const setStubStatus = useTripStore((s) => s.setStubStatus)
-  const left = daysUntil(stubDeadline(stub, checkedAt))
+  const setConfirmation = useTripStore((s) => s.setConfirmation)
+  const left = daysUntil(stubDeadline(ticket, checkedAt))
   const done = status !== 'to-book'
+  const how = ticket.entered ? (ticket.entered === 'flight' ? 'Your flight' : 'Your stay') : ticket.how && HOW_LABEL[ticket.how]
   return (
     <div
       className="flex"
-      style={{ background: '#f2ead8', color: '#2c1810', borderRadius: 4, minWidth: 260, maxWidth: 340, opacity: done ? 0.65 : 1, boxShadow: '0 10px 24px -10px rgba(0,0,0,.6)' }}
+      style={{ background: '#f2ead8', color: '#2c1810', borderRadius: 4, minWidth: 260, maxWidth: 360, opacity: done ? 0.8 : 1, boxShadow: '0 10px 24px -10px rgba(0,0,0,.6)' }}
     >
-      <div className="flex-1" style={{ padding: '10px 12px' }}>
-        <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.16em', color: '#a86030' }}>DAY {stub.day} · TICKET</div>
-        <div className="font-display" style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25, marginTop: 2 }}>{stub.item}</div>
-        <div style={{ fontSize: 10.5, marginTop: 4, color: '#6b4a32' }}>{dateLine(stub, checkedAt)}</div>
+      <div className="flex-1 min-w-0" style={{ padding: '10px 12px' }}>
+        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.14em', color: '#a86030' }}>
+          DAY {ticket.days.join(' · ')} · {ticket.entered ? ticket.entered.toUpperCase() : 'TICKET'}
+        </div>
+        <div className="font-display" style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25, marginTop: 2 }}>{ticket.item}</div>
+        <div style={{ fontSize: 11, marginTop: 4, color: '#6b4a32' }}>
+          {how && <>{ticket.sourceUrl && !ticket.entered
+            ? <a href={ticket.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#a86030', fontWeight: 700 }}>{how} ↗</a>
+            : <b style={{ color: '#a86030' }}>{how}</b>}{' · '}</>}
+          {done ? (status === 'booked' ? 'Booked' : 'Pay on the day') : dateLine(ticket, checkedAt)}
+        </div>
+        {status === 'booked' && (
+          <input
+            aria-label={`Confirmation number for ${ticket.item}`}
+            defaultValue={confirmation}
+            placeholder="Confirmation no."
+            maxLength={40}
+            onBlur={(e) => { if (e.target.value.trim() !== (confirmation ?? '')) setConfirmation(tripId, ticket.key, e.target.value.trim()) }}
+            className="w-full"
+            style={{ marginTop: 6, fontSize: 12, padding: '5px 8px', borderRadius: 4, border: '1px solid rgba(44,24,16,.25)', background: '#fffef9', color: '#2c1810' }}
+          />
+        )}
       </div>
       {/* Perforated tear-off */}
       <div
@@ -211,27 +237,35 @@ export function TicketStub({ tripId, stub, checkedAt, status }: { tripId: string
         <span style={{ fontWeight: 900, fontSize: 15, color: done ? '#6b8f5e' : left < 0 ? '#c94040' : '#2c1810' }}>
           {done ? <Check size={18} strokeWidth={3} aria-label={STATUS_LABEL[status]} /> : left < 0 ? 'late' : left === 0 ? 'today' : `${left}d`}
         </span>
-        <select
-          aria-label={`Booking status for ${stub.item}`}
-          value={status}
-          onChange={(e) => setStubStatus(tripId, stub.key, e.target.value as StubStatus)}
-          style={{ fontSize: 10, background: 'transparent', border: '1px solid rgba(44,24,16,.3)', borderRadius: 4, width: '100%' }}
-        >
-          {(Object.keys(STATUS_LABEL) as StubStatus[]).map((k) => <option key={k} value={k}>{STATUS_LABEL[k]}</option>)}
-        </select>
+        {ticket.entered ? (
+          <span style={{ fontSize: 10.5, fontWeight: 700 }}>Booked</span>
+        ) : (
+          <select
+            aria-label={`Booking status for ${ticket.item}`}
+            value={status}
+            // A merged ticket covers several days' stubs: they all move together
+            onChange={(e) => ticket.keys.forEach((k) => setStubStatus(tripId, k, e.target.value as StubStatus))}
+            style={{ fontSize: 11, minHeight: 28, background: 'transparent', border: '1px solid rgba(44,24,16,.3)', borderRadius: 4, width: '100%' }}
+          >
+            {(Object.keys(STATUS_LABEL) as StubStatus[]).map((k) => <option key={k} value={k}>{STATUS_LABEL[k]}</option>)}
+          </select>
+        )}
       </div>
     </div>
   )
 }
 
-/* ── Book-by list (all stubs, next deadline first) ── */
+/* ── Booking list: still to book first, then booked ── */
 
-export function BookByList({ tripId, report, marks, destination }: { tripId: string; report: RealityReport; marks: RealityMarks; destination: string }) {
-  if (!report.stubs.length) return null
-  const sorted = sortStubs(report.stubs, report.checkedAt)
+export function BookByList({ tripId, tickets, checkedAt, marks, destination }: {
+  tripId: string; tickets: Ticket[]; checkedAt: string; marks: RealityMarks; destination: string
+}) {
+  if (!tickets.length) return null
+  const sorted = sortTickets(tickets, marks, checkedAt)
 
   function downloadIcs() {
-    const ics = buildStubsIcs(sorted, report.checkedAt, marks.stubs, destination)
+    const statuses = Object.fromEntries(sorted.map((t) => [t.key, ticketStatus(t, marks)]))
+    const ics = buildStubsIcs(sorted.filter((t) => !t.entered), checkedAt, statuses, destination)
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }))
     a.download = `${destination.toLowerCase().replace(/\s+/g, '-')}-booking-dates.ics`
@@ -242,18 +276,25 @@ export function BookByList({ tripId, report, marks, destination }: { tripId: str
   return (
     <div style={{ padding: '40px var(--gutter) 0' }}>
       <div className="flex items-center flex-wrap" style={{ gap: 16, marginBottom: 12 }}>
-        <span style={label}>BOOK-BY LIST</span>
+        <span style={label}>BOOKINGS</span>
         <button
           onClick={downloadIcs}
           className="rounded-full transition-all hover:border-[#c9a84c] hover:text-[#c9a84c] inline-flex items-center gap-1.5"
-          style={{ padding: '6px 14px', border: `1px solid ${cream(0.25)}`, color: cream(0.7), fontSize: 11 }}
+          style={{ padding: '6px 14px', border: `1px solid ${cream(0.25)}`, color: cream(0.7), fontSize: 11.5, minHeight: 32 }}
         >
           <CalendarPlus size={13} aria-hidden="true" /> Add dates to Calendar (.ics)
         </button>
       </div>
       <div className="flex flex-wrap" style={{ gap: 12 }}>
-        {sorted.map((s) => (
-          <TicketStub key={s.key} tripId={tripId} stub={s} checkedAt={report.checkedAt} status={marks.stubs[s.key] ?? 'to-book'} />
+        {sorted.map((t) => (
+          <TicketStub
+            key={t.key}
+            tripId={tripId}
+            ticket={t}
+            checkedAt={checkedAt}
+            status={ticketStatus(t, marks)}
+            confirmation={marks.confirmations?.[t.key]}
+          />
         ))}
       </div>
     </div>

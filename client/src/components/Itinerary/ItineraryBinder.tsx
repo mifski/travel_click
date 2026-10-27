@@ -7,9 +7,10 @@ import { googleMapsUrl } from '@/lib/utils'
 import { dayReality } from '@/lib/reality'
 import { placedDays } from '@/lib/decide'
 import { useTripStore } from '@/lib/store'
-import { RealityStamp, PaceRibbon, DayRealityPanel } from './RealityPanel'
+import { RealityStamp, PaceRibbon, DayRealityPanel, BookByList } from './RealityPanel'
 import { TripStrip } from './TripStrip'
 import { uniqueDayTips, plain } from '@/lib/tips'
+import { bookingTickets } from '@/lib/bookings'
 import { Clock, MapPin, Utensils, Navigation, Info, Wallet } from 'lucide-react'
 
 /* ═══════════════ Print view (light, flat document) ═══════════════ */
@@ -179,6 +180,14 @@ export function ItineraryBinder({
   const blocks = dayBlocks(day)
   const prints = useMemo(() => pickPrints(day, cards), [day, cards])
   const pace = useTripStore((s) => s.trips.find((t) => t.id === itinerary.tripId)?.pace) ?? 'balanced'
+  // Booking list: AI tickets merged by venue, plus the flights and stays the travellers entered
+  const tripStart = useTripStore((s) => s.trips.find((t) => t.id === itinerary.tripId)?.startDate) ?? itinerary.days[0]?.date ?? ''
+  const flights = useTripStore((s) => s.budgets[itinerary.tripId]?.flights)
+  const stays = useTripStore((s) => s.stays[itinerary.tripId]?.booked)
+  const tickets = useMemo(
+    () => bookingTickets(report, flights ?? [], stays ?? [], tripStart),
+    [report, flights, stays, tripStart],
+  )
   const tipsByDay = useMemo(() => uniqueDayTips(itinerary), [itinerary])
   const dayTips = tipsByDay[Math.min(activeDay, itinerary.days.length - 1)] ?? []
   // Open stops, keyed by day so switching days starts collapsed
@@ -214,7 +223,8 @@ export function ItineraryBinder({
         activeDay={activeDay}
         onDayChange={onDayChange}
         pace={pace}
-        report={report}
+        tickets={tickets}
+        checkedAt={report?.checkedAt}
         marks={marks}
         checking={checking}
       />
@@ -251,9 +261,10 @@ export function ItineraryBinder({
               <DayRealityPanel
                 tripId={itinerary.tripId}
                 reality={reality}
-                stubs={report?.stubs.filter((s) => s.day === day.day) ?? []}
+                stubs={tickets.filter((t) => t.days.includes(day.day))}
                 checkedAt={report?.checkedAt}
                 statuses={marks.stubs}
+                confirmations={marks.confirmations}
                 onFix={onRefine}
                 busy={refining || checking}
               />
@@ -431,6 +442,10 @@ export function ItineraryBinder({
             </div>
           </div>
         </motion.div>
+
+      {report && (
+        <BookByList tripId={itinerary.tripId} tickets={tickets} checkedAt={report.checkedAt} marks={marks} destination={itinerary.destination} />
+      )}
     </>
   )
 }

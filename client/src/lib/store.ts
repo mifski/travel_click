@@ -76,6 +76,7 @@ interface TripStore {
   // Reality layer
   saveRealityCheck: (report: RealityReport) => void
   setStubStatus: (tripId: string, key: string, status: StubStatus) => void
+  setConfirmation: (tripId: string, key: string, confirmation: string) => void
   markFactChecked: (tripId: string, key: string) => void
   dismissFinding: (tripId: string, key: string) => void
 
@@ -153,7 +154,7 @@ async function syncCardDelete(tripId: string, cardId: string) {
   } catch { /* ignore */ }
 }
 
-function patchMarks<K extends keyof RealityMarks>(
+function patchMarks<K extends 'stubs' | 'facts' | 'dismissed'>(
   s: TripStore, tripId: string, field: K, key: string, value: RealityMarks[K][string]
 ): Partial<TripStore> {
   const marks = s.realityMarks[tripId] ?? EMPTY_MARKS
@@ -399,6 +400,10 @@ export const useTripStore = create<TripStore>()(
         set((s) => ({ realityChecks: { ...s.realityChecks, [report.tripId]: report } })),
 
       setStubStatus: (tripId, key, status) => set((s) => patchMarks(s, tripId, 'stubs', key, status)),
+      setConfirmation: (tripId, key, confirmation) => set((s) => {
+        const marks = s.realityMarks[tripId] ?? EMPTY_MARKS
+        return { realityMarks: { ...s.realityMarks, [tripId]: { ...marks, confirmations: { ...marks.confirmations, [key]: confirmation } } } }
+      }),
       markFactChecked: (tripId, key) =>
         set((s) => patchMarks(s, tripId, 'facts', key, new Date().toISOString().slice(0, 10))),
       dismissFinding: (tripId, key) => set((s) => patchMarks(s, tripId, 'dismissed', key, true)),

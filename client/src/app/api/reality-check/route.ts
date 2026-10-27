@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import type { TripContext, GeneratedItinerary, RealityReport, RealityFinding, RealityFact, BookingStub } from '@/lib/types'
+import type { TripContext, GeneratedItinerary, RealityReport, RealityFinding, RealityFact, BookingStub, BookingChannel } from '@/lib/types'
 import { rateLimit, clamp } from '@/lib/api-guard'
 import { daySig } from '@/lib/reality'
 
@@ -9,6 +9,7 @@ export const maxDuration = 120
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/
+const CHANNELS: BookingChannel[] = ['official-site', 'phone', 'agent']
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60)
 const weekday = (iso: string) =>
   ISO.test(iso) ? new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }) : '?'
@@ -48,14 +49,14 @@ Rules:
 - severity "fix" = the day fails as written; "look" = risky, worth a look
 - "fix" is ONE short instruction a planner can apply to the day (e.g. "Use a Kyoto Station coin locker instead of returning to the hotel")
 - "facts": the 1–3 key facts the day depends on (opening hours, closed days, timetables, fares). Give an official sourceUrl only if you know the exact official site; never invent URLs
-- "stubs": one per item that takes tickets or reservations ahead (never walk-in-only places). opensOn = when sales open, bookBy = latest sensible booking date (YYYY-MM-DD, before the visit). Give dates only if you have a real basis; otherwise omit them
+- "stubs": one per item that takes tickets or reservations ahead (never walk-in-only places, never free-entry places). "venue" = the short venue name only (e.g. "Saoto Kawaken"). "how" = "official-site", "phone" or "agent". opensOn = when sales open, bookBy = latest sensible booking date (YYYY-MM-DD, before the visit), based on when slots open and the usual lead time, not the day before. Give dates only if you have a real basis; otherwise omit them
 - Do not repeat these (checked elsewhere): missing anchor, missing rest block, missing backups, transfer count
 - Return no findings if the day is genuinely fine
 
 Return ONLY valid JSON:
 {"findings":[{"severity":"fix","reason":"plain reason","fix":"one-tap fix"}],
  "facts":[{"text":"Byodo-in opens 8:30–17:30 daily","sourceUrl":"https://..."}],
- "stubs":[{"item":"Arima Onsen direct bus (Kyoto → Arima)","opensOn":"YYYY-MM-DD","bookBy":"YYYY-MM-DD"}]}`
+ "stubs":[{"item":"Arima Onsen direct bus (Kyoto → Arima)","venue":"Arima Onsen bus","how":"official-site","opensOn":"YYYY-MM-DD","bookBy":"YYYY-MM-DD"}]}`
 
   async function checkDay(i: number): Promise<RawDay> {
     const response = await client.messages.create({
@@ -98,13 +99,18 @@ Return ONLY valid JSON:
         }
       }),
       // AI dates are never "sourced" — they show as estimated, or a check-again date when missing
-      stubs: raw.flatMap((r, k) => (r.stubs ?? []).filter((s) => s.item).slice(0, 5).map((s): BookingStub => {
-        const opensOn = date(s.opensOn), bookBy = date(s.bookBy)
-        return {
-          key: slug(String(s.item)), item: clamp(s.item, 120), day: picked[k].d.day,
-          opensOn, bookBy, dateBasis: opensOn || bookBy ? 'estimated' : 'unknown', sourceUrl: url(s.sourceUrl),
-        }
-      })),
+      stubs: raw.flatMap((r, k) => (r.stubs ?? [])
+        // Walk-in-only places can't be booked, so they aren't tickets
+        .filter((s) => s.item && String(s.how ?? '').toLowerCase() !== 'walk-in')
+        .slice(0, 5).map((s): BookingStub => {
+          const opensOn = date(s.opensOn), bookBy = date(s.bookBy)
+          const how = CHANNELS.find((c) => c === s.how)
+          return {
+            key: slug(String(s.item)), item: clamp(s.item, 120), day: picked[k].d.day,
+            opensOn, bookBy, dateBasis: opensOn || bookBy ? 'estimated' : 'unknown', sourceUrl: url(s.sourceUrl),
+            how, venue: clamp(s.venue, 60).trim() || undefined,
+          }
+        })),
     }
     return NextResponse.json({ report })
   } catch (err) {

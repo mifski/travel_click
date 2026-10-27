@@ -10,7 +10,7 @@ import { GenerationOverlay } from '@/components/UI/GenerationOverlay'
 import { toast } from '@/components/UI/Toaster'
 import { DEMO_TRIP_ID, seedDemo } from '@/lib/demo-data'
 import type { GeneratedItinerary, RealityReport, TripContext } from '@/lib/types'
-import { BookByList, PaceControl } from '@/components/Itinerary/RealityPanel'
+import { PaceControl } from '@/components/Itinerary/RealityPanel'
 import { PlanSheet } from '@/components/Itinerary/PlanSheet'
 import { planRequestBody } from '@/lib/plan-request'
 import { unplacedMusts } from '@/lib/decide'
@@ -335,7 +335,6 @@ export default function ItineraryPage() {
               onRecheck={() => void realityCheck(trip, itinerary)}
             />
 
-            {report && <BookByList tripId={tripId} report={report} marks={marks} destination={trip.destination} />}
 
             {/* General tips */}
             {itinerary.generalTips?.length > 0 && (
