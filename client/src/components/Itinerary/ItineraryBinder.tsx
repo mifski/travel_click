@@ -9,6 +9,7 @@ import { placedDays } from '@/lib/decide'
 import { useTripStore } from '@/lib/store'
 import { RealityStamp, PaceRibbon, DayRealityPanel } from './RealityPanel'
 import { TripStrip } from './TripStrip'
+import { uniqueDayTips, plain } from '@/lib/tips'
 import { Clock, MapPin, Utensils, Navigation, Info, Wallet } from 'lucide-react'
 
 /* ═══════════════ Print view (light, flat document) ═══════════════ */
@@ -178,6 +179,18 @@ export function ItineraryBinder({
   const blocks = dayBlocks(day)
   const prints = useMemo(() => pickPrints(day, cards), [day, cards])
   const pace = useTripStore((s) => s.trips.find((t) => t.id === itinerary.tripId)?.pace) ?? 'balanced'
+  const tipsByDay = useMemo(() => uniqueDayTips(itinerary), [itinerary])
+  const dayTips = tipsByDay[Math.min(activeDay, itinerary.days.length - 1)] ?? []
+  // Open stops, keyed by day so switching days starts collapsed
+  const [openStops, setOpenStops] = useState<Set<string>>(() => new Set())
+  const isOpen = (i: number) => openStops.has(`${activeDay}:${i}`)
+  const toggleStop = (i: number) => setOpenStops((prev) => {
+    const next = new Set(prev)
+    const k = `${activeDay}:${i}`
+    if (next.has(k)) next.delete(k)
+    else next.add(k)
+    return next
+  })
   // Swap chips only for pins still on the board, not skipped since, and not already placed
   const priorities = useTripStore((s) => s.pinPriorities[itinerary.tripId])
   const unusedPins = useMemo(() => {
@@ -262,20 +275,33 @@ export function ItineraryBinder({
                     ? { left: -26, top: 5, width: 11, height: 11, background: '#c9a84c', boxShadow: '0 0 12px rgba(201,168,76,.6)' }
                     : { left: -26, top: 5, width: 11, height: 11, border: '2px solid rgba(201,168,76,.5)', background: '#201209', boxSizing: 'border-box' }}
                 />
-                <div className="flex items-baseline flex-wrap" style={{ gap: 12 }}>
+                {/* Collapsed by default: time, name, duration; a tap opens the notes and the Maps link */}
+                <button
+                  type="button"
+                  onClick={() => toggleStop(i)}
+                  aria-expanded={isOpen(i)}
+                  className="flex items-baseline flex-wrap text-left w-full group"
+                  style={{ gap: '4px 12px', cursor: 'pointer' }}
+                >
                   <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.14em', color: '#c9a84c' }}>
                     {block.time}
                   </span>
-                  <span className="font-display" style={{ fontWeight: 700, fontSize: 21, color: '#f2ead8' }}>
+                  <span className="font-display group-hover:text-[#c9a84c]" style={{ fontWeight: 700, fontSize: 21, color: '#f2ead8' }}>
                     {block.activity}
                   </span>
-                </div>
+                  <span style={{ fontSize: 11.5, color: cream(0.6) }}>
+                    {block.duration}
+                    {block.bookingRequired && <span style={{ color: '#c9a84c', fontWeight: 700, letterSpacing: '.08em', fontSize: 10.5 }}> · BOOK AHEAD</span>}
+                    {(block.notes || block.place) && <span aria-hidden="true" style={{ marginLeft: 6 }}>{isOpen(i) ? '▾' : '▸'}</span>}
+                  </span>
+                </button>
+                {isOpen(i) && (<>
                 {block.notes && (
                   <p style={{ margin: '6px 0 0', fontSize: 12.5, lineHeight: 1.6, color: cream(0.6), maxWidth: 430 }}>
-                    {block.notes}
+                    {plain(block.notes)}
                   </p>
                 )}
-                <div className="flex items-baseline" style={{ gap: 14, marginTop: 8, fontSize: 11 }}>
+                <div className="flex items-baseline" style={{ gap: 14, marginTop: 8, fontSize: 11.5 }}>
                   <a
                     href={googleMapsUrl(block.place, itinerary.destination)}
                     target="_blank"
@@ -286,11 +312,9 @@ export function ItineraryBinder({
                   >
                     Open in Maps ↗
                   </a>
-                  <span style={{ color: cream(0.55) }}>{block.duration}</span>
-                  {block.bookingRequired && (
-                    <span style={{ color: '#c9a84c', fontWeight: 700, letterSpacing: '.08em', fontSize: 9.5 }}>BOOK AHEAD</span>
-                  )}
+                  <span style={{ color: cream(0.55) }}>{block.place}</span>
                 </div>
+                </>)}
               </div>
             ))}
 
@@ -302,12 +326,12 @@ export function ItineraryBinder({
             </div>
 
             {/* Tips for the day */}
-            {day.travelTips?.length > 0 && (
+            {dayTips.length > 0 && (
               <div style={{ marginTop: 4, maxWidth: 460 }}>
-                <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '.2em', color: 'rgba(201,168,76,.7)' }}>TIPS</span>
-                {day.travelTips.map((tip, i) => (
-                  <p key={i} style={{ margin: '4px 0 0', fontSize: 11.5, lineHeight: 1.55, color: cream(0.5) }}>
-                    {tip}
+                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.2em', color: 'rgba(201,168,76,.7)' }}>TIPS</span>
+                {dayTips.map((tip, i) => (
+                  <p key={i} style={{ margin: '4px 0 0', fontSize: 12, lineHeight: 1.55, color: cream(0.6) }}>
+                    {plain(tip)}
                   </p>
                 ))}
               </div>
