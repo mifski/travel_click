@@ -18,6 +18,10 @@ import { EMPTY_MARKS } from '@/lib/reality'
 import { formatDateRange } from '@/lib/utils'
 import { Printer, RotateCw } from 'lucide-react'
 import { Logo } from '@/components/UI/Logo'
+import { useCompact } from '@/lib/use-media'
+import { DISCOVERY_LABELS, type TripPace } from '@/lib/types'
+
+const PACE_LABEL: Record<TripPace, string> = { slow: 'Slow pace', balanced: 'Balanced pace', full: 'Full pace' }
 
 const cream = (a: number) => `rgba(242,234,216,${a})`
 
@@ -49,6 +53,8 @@ export default function ItineraryPage() {
   const [activeDay, setActiveDay] = useState(0)
   const [checking, setChecking] = useState(false)
   const [planOpen, setPlanOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const compact = useCompact()
 
   const isDemo = tripId === DEMO_TRIP_ID
 
@@ -238,7 +244,7 @@ export default function ItineraryPage() {
             <div style={{ fontSize: 11, letterSpacing: '.2em', lineHeight: 1.6, color: '#c9a84c', fontWeight: 600, marginBottom: 8 }}>
               THE BINDER · {dateRange} · {trip.paxCount} TRAVELLER{trip.paxCount > 1 ? 'S' : ''}
             </div>
-            <h1 className="font-display m-0" style={{ fontWeight: 800, fontSize: 'clamp(44px, 12vw, 72px)', lineHeight: 0.95, color: '#f2ead8', letterSpacing: '-.02em' }}>
+            <h1 className="font-display m-0" style={{ fontWeight: 800, fontSize: 'clamp(36px, 10vw, 72px)', lineHeight: 0.95, color: '#f2ead8', letterSpacing: '-.02em' }}>
               {trip.destination},{' '}
               <span className="italic" style={{ fontWeight: 500, color: cream(0.75) }}>day by day</span>
             </h1>
@@ -250,8 +256,22 @@ export default function ItineraryPage() {
               {ghost}
             </span>
           </div>
-          <div className="flex flex-col items-start sm:items-end" style={{ gap: 14 }}>
-          {itinerary && (
+          <div className="flex flex-col items-start sm:items-end" style={{ gap: compact ? 6 : 14 }}>
+          {/* Phones: the settings fold into one line so the trip strip sits near the top */}
+          {itinerary && compact && (
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(!settingsOpen)}
+              aria-expanded={settingsOpen}
+              className="inline-flex items-center"
+              style={{ gap: 8, minHeight: 36, fontSize: 12.5, color: cream(0.7) }}
+            >
+              <span aria-hidden="true" style={{ color: '#c9a84c' }}>{settingsOpen ? '▾' : '▸'}</span>
+              {PACE_LABEL[trip.pace ?? 'balanced']} · starts {trip.dayStart ?? '09:00'} · {DISCOVERY_LABELS[trip.discovery ?? 2]}
+              <span style={{ color: '#c9a84c', fontWeight: 600 }}>Change</span>
+            </button>
+          )}
+          {itinerary && (!compact || settingsOpen) && (
             <PaceControl
               key={`${trip.pace}-${trip.dayStart}-${trip.discovery}-${trip.homeBase}`}
               settings={{
@@ -268,14 +288,18 @@ export default function ItineraryPage() {
               }}
             />
           )}
-          {itinerary?.totalEstimatedCost && (
+          {itinerary?.totalEstimatedCost && (compact ? (
+            <span style={{ fontSize: 12.5, color: cream(0.6) }}>
+              Trip est. <span className="font-display" style={{ fontWeight: 800, fontSize: 16, color: '#c9a84c' }}>{itinerary.totalEstimatedCost}</span>
+            </span>
+          ) : (
             <div className="flex flex-col items-start sm:items-end gap-1.5">
               <span style={{ fontSize: 12, color: cream(0.55) }}>Trip total (est.)</span>
               <span className="font-display" style={{ fontWeight: 800, fontSize: 'clamp(22px, 6vw, 30px)', color: '#c9a84c' }}>
                 {itinerary.totalEstimatedCost}
               </span>
             </div>
-          )}
+          ))}
           </div>
         </div>
 
