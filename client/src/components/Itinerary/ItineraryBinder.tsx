@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import type { GeneratedItinerary, ItineraryDay, ItineraryTimeBlock, TravelCard, RealityReport, RealityMarks } from '@/lib/types'
 import { googleMapsUrl } from '@/lib/utils'
 import { dayReality } from '@/lib/reality'
@@ -181,16 +181,16 @@ export function ItineraryBinder({
       <div className="swipe-row sm:flex-wrap items-center" style={{ gap: 8, padding: '22px var(--gutter) 4px' }}>
         {itinerary.days.map((d, i) => {
           const active = i === activeDay
-          const short = d.theme.split(/[:—–]/)[0].trim()
-          const label = `Day ${d.day} · ${short.length > 16 ? `${short.slice(0, 15)}…` : short}`
+          const label = `Day ${d.day} · ${d.theme.trim()}`
           return (
             <button
               key={i}
               onClick={() => onDayChange(i)}
-              className={active ? 'pill-gold rounded-full font-bold' : 'rounded-full transition-colors'}
+              aria-current={active ? 'page' : undefined}
+              className={active ? 'pill-gold rounded-full font-bold text-left' : 'rounded-full transition-colors text-left'}
               style={active
-                ? { padding: '9px 20px', fontSize: 12.5, cursor: 'pointer' }
-                : { padding: '9px 20px', fontSize: 12.5, border: `1px solid ${cream(0.2)}`, color: cream(0.65), cursor: 'pointer' }}
+                ? { padding: '9px 20px', fontSize: 12.5, cursor: 'pointer', maxWidth: 360 }
+                : { padding: '9px 20px', fontSize: 12.5, border: `1px solid ${cream(0.2)}`, color: cream(0.65), cursor: 'pointer', maxWidth: 360 }}
               onMouseEnter={(e) => { if (!active) e.currentTarget.style.borderColor = '#c9a84c' }}
               onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = cream(0.2) }}
             >
@@ -212,13 +212,11 @@ export function ItineraryBinder({
         )}
       </div>
 
-      {/* ── Day spread ── */}
-      <AnimatePresence mode="wait">
+      {/* ── Day spread ── enter-only: an exit animation gating the swap left the previous day on screen when frames stalled or tabs were clicked fast */}
         <motion.div
           key={activeDay}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.22 }}
           className="flex flex-wrap"
           style={{ gap: 36, padding: '26px var(--gutter) 0' }}
@@ -399,7 +397,6 @@ export function ItineraryBinder({
             </div>
           </div>
         </motion.div>
-      </AnimatePresence>
     </>
   )
 }
