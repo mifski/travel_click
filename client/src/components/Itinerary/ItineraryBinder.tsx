@@ -8,6 +8,7 @@ import { dayReality } from '@/lib/reality'
 import { placedDays } from '@/lib/decide'
 import { useTripStore } from '@/lib/store'
 import { RealityStamp, PaceRibbon, DayRealityPanel } from './RealityPanel'
+import { TripStrip } from './TripStrip'
 import { Clock, MapPin, Utensils, Navigation, Info, Wallet } from 'lucide-react'
 
 /* ═══════════════ Print view (light, flat document) ═══════════════ */
@@ -176,6 +177,7 @@ export function ItineraryBinder({
   const reality = realities[Math.min(activeDay, itinerary.days.length - 1)]
   const blocks = dayBlocks(day)
   const prints = useMemo(() => pickPrints(day, cards), [day, cards])
+  const pace = useTripStore((s) => s.trips.find((t) => t.id === itinerary.tripId)?.pace) ?? 'balanced'
   // Swap chips only for pins still on the board, not skipped since, and not already placed
   const priorities = useTripStore((s) => s.pinPriorities[itinerary.tripId])
   const unusedPins = useMemo(() => {
@@ -192,40 +194,17 @@ export function ItineraryBinder({
 
   return (
     <>
-      {/* ── Day tabs ── */}
-      <div className="swipe-row sm:flex-wrap items-center" style={{ gap: 8, padding: '22px var(--gutter) 4px' }}>
-        {itinerary.days.map((d, i) => {
-          const active = i === activeDay
-          const label = `Day ${d.day} · ${d.theme.trim()}`
-          return (
-            <button
-              key={i}
-              onClick={() => onDayChange(i)}
-              aria-current={active ? 'page' : undefined}
-              className={active ? 'pill-gold rounded-full font-bold text-left' : 'rounded-full transition-colors text-left'}
-              style={active
-                ? { padding: '9px 20px', fontSize: 12.5, cursor: 'pointer', maxWidth: 360 }
-                : { padding: '9px 20px', fontSize: 12.5, border: `1px solid ${cream(0.2)}`, color: cream(0.65), cursor: 'pointer', maxWidth: 360 }}
-              onMouseEnter={(e) => { if (!active) e.currentTarget.style.borderColor = '#c9a84c' }}
-              onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = cream(0.2) }}
-            >
-              {!checking && report && (
-                <span
-                  aria-label={realities[i].checked ? 'Checked' : 'Check again'}
-                  className="inline-block rounded-full"
-                  style={{ width: 7, height: 7, marginRight: 7, background: realities[i].checked ? '#8fbf7a' : '#e0705f', verticalAlign: 'middle' }}
-                />
-              )}
-              {label}
-            </button>
-          )
-        })}
-        {day.estimatedCost && (
-          <span className="ml-auto pl-2 whitespace-nowrap" style={{ fontSize: 11.5, color: cream(0.55) }}>
-            Day est. <span style={{ color: '#c9a84c', fontWeight: 700 }}>{day.estimatedCost}</span>
-          </span>
-        )}
-      </div>
+      {/* ── Trip strip: every day at a glance, and the day navigation ── */}
+      <TripStrip
+        days={itinerary.days}
+        realities={realities}
+        activeDay={activeDay}
+        onDayChange={onDayChange}
+        pace={pace}
+        report={report}
+        marks={marks}
+        checking={checking}
+      />
 
       {/* ── Day spread ── enter-only: an exit animation gating the swap left the previous day on screen when frames stalled or tabs were clicked fast */}
         <motion.div
@@ -238,22 +217,24 @@ export function ItineraryBinder({
         >
           {/* Timeline */}
           <div className="relative flex-1" style={{ paddingLeft: 26, minWidth: 'min(320px, 100%)' }}>
-            <span
-              aria-hidden="true"
-              className="absolute"
-              style={{ left: 5, top: 8, bottom: 8, width: 1, background: 'linear-gradient(180deg, rgba(201,168,76,.6), rgba(201,168,76,.1))' }}
-            />
-
-            <div className="flex items-center flex-wrap" style={{ gap: 14, marginBottom: 14, marginLeft: -26 }}>
-              <RealityStamp reality={reality} checking={checking} />
-              {!checking && (
-                <button onClick={onRecheck} disabled={refining} style={{ fontSize: 11, color: cream(0.5) }} className="hover:text-[#c9a84c] disabled:opacity-40">
-                  ↻ Re-check
-                </button>
-              )}
-            </div>
-            <div style={{ marginLeft: -26 }}>
-              <PaceRibbon day={day} />
+            {/* Day heading: full theme, the stamp, cost, then one collapsed line of checks */}
+            <div style={{ marginLeft: -26, marginBottom: 18 }}>
+              <h2 className="font-display m-0" style={{ fontWeight: 700, fontSize: 24, lineHeight: 1.2, color: '#f2ead8' }}>
+                Day {day.day} · {day.theme}
+              </h2>
+              <div className="flex items-center flex-wrap" style={{ gap: 14, marginTop: 10 }}>
+                <RealityStamp reality={reality} checking={checking} />
+                {!checking && (
+                  <button onClick={onRecheck} disabled={refining} style={{ fontSize: 11.5, color: cream(0.6), minHeight: 32 }} className="hover:text-[#c9a84c] disabled:opacity-40">
+                    ↻ Re-check
+                  </button>
+                )}
+                {day.estimatedCost && (
+                  <span style={{ fontSize: 11.5, color: cream(0.6) }}>
+                    Day est. <span style={{ color: '#c9a84c', fontWeight: 700 }}>{day.estimatedCost}</span>
+                  </span>
+                )}
+              </div>
               <DayRealityPanel
                 tripId={itinerary.tripId}
                 reality={reality}
@@ -265,6 +246,13 @@ export function ItineraryBinder({
               />
             </div>
 
+            {/* The gold line runs through the stops only, not the heading above them */}
+            <div className="relative">
+            <span
+              aria-hidden="true"
+              className="absolute"
+              style={{ left: -21, top: 8, bottom: 34, width: 1, background: 'linear-gradient(180deg, rgba(201,168,76,.6), rgba(201,168,76,.1))' }}
+            />
             {blocks.map((block, i) => (
               <div key={i} className="relative" style={{ marginBottom: 26 }}>
                 <span
@@ -305,6 +293,13 @@ export function ItineraryBinder({
                 </div>
               </div>
             ))}
+
+            </div>
+
+            {/* Anchor, rest and backups sit after the plan they describe */}
+            <div style={{ marginLeft: -26 }}>
+              <PaceRibbon day={day} />
+            </div>
 
             {/* Tips for the day */}
             {day.travelTips?.length > 0 && (

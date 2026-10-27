@@ -74,10 +74,34 @@ interface DayPanelProps {
 export function DayRealityPanel({ tripId, reality, stubs, checkedAt, statuses, onFix, busy }: DayPanelProps) {
   const markFactChecked = useTripStore((s) => s.markFactChecked)
   const dismissFinding = useTripStore((s) => s.dismissFinding)
+  // Collapsed by default so the day's plan comes first; one line says what's waiting
+  const [open, setOpen] = useState(false)
+  const [factsOpen, setFactsOpen] = useState(false)
   if (!reality.findings.length && !reality.facts.length && !stubs.length) return null
 
+  const fixes = reality.findings.filter((f) => f.severity === 'fix').length
+  const looks = reality.findings.length - fixes
+  const unconfirmed = reality.facts.filter((f) => !f.checkedOn).length
+  const summary = [
+    fixes && `${fixes} to fix`,
+    looks && `${looks} to look at`,
+    unconfirmed && `${unconfirmed} fact${unconfirmed > 1 ? 's' : ''} to confirm`,
+    stubs.length && `${stubs.length} ticket${stubs.length > 1 ? 's' : ''}`,
+  ].filter(Boolean).join(' · ') || 'All checked'
+
   return (
-    <div style={{ marginBottom: 26, maxWidth: 640 }}>
+    <div style={{ marginTop: 12, maxWidth: 640 }}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="inline-flex items-center hover:text-[#c9a84c]"
+        style={{ gap: 8, minHeight: 32, fontSize: 12.5, fontWeight: 600, color: fixes ? CORAL : cream(0.7) }}
+      >
+        <span aria-hidden="true" style={{ display: 'inline-block', transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>▸</span>
+        Reality Check: {summary}
+      </button>
+      {open && (<div style={{ marginTop: 6, marginBottom: 8 }}>
       {reality.findings.length > 0 && (
         <>
           <span style={label}>REALITY CHECK</span>
@@ -119,8 +143,10 @@ export function DayRealityPanel({ tripId, reality, stubs, checkedAt, statuses, o
 
       {reality.facts.length > 0 && (
         <div style={{ marginTop: 16 }}>
-          <span style={label}>KEY FACTS</span>
-          {reality.facts.map((f) => (
+          <button type="button" onClick={() => setFactsOpen(!factsOpen)} aria-expanded={factsOpen} style={{ ...label, minHeight: 28 }} className="hover:text-[#c9a84c]">
+            {factsOpen ? '▾' : '▸'} KEY FACTS · {reality.facts.length}
+          </button>
+          {factsOpen && reality.facts.map((f) => (
             <div key={f.key} className="flex flex-wrap items-baseline" style={{ gap: 10, marginTop: 6, fontSize: 12, color: cream(0.7) }}>
               <span>{f.text}</span>
               {f.checkedOn ? (
@@ -148,6 +174,7 @@ export function DayRealityPanel({ tripId, reality, stubs, checkedAt, statuses, o
           {stubs.map((s) => <TicketStub key={s.key} tripId={tripId} stub={s} checkedAt={checkedAt} status={statuses[s.key] ?? 'to-book'} />)}
         </div>
       )}
+      </div>)}
     </div>
   )
 }
