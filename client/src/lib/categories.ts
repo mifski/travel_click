@@ -74,6 +74,13 @@ export const CATEGORIES: Record<string, CategoryInfo> = {
     badgeBg: 'bg-sky-900/80', badgeText: 'text-sky-200',
     boardAccent: '#0369a1',
   },
+  themed: {
+    key: 'themed', label: 'Themed', icon: '🎢',
+    color: '#7e22ce',
+    heroBg: 'linear-gradient(135deg,#3b0764 0%,#7e22ce 60%,#c084fc 100%)',
+    badgeBg: 'bg-purple-900/80', badgeText: 'text-purple-200',
+    boardAccent: '#7e22ce',
+  },
   accommodation: {
     key: 'accommodation', label: 'Stay', icon: '🏨',
     color: '#475569',
@@ -117,6 +124,8 @@ const TAG_MAP: Record<string, string> = {
   // shopping
   shopping: 'shopping', mall: 'shopping', boutique: 'shopping', fashion: 'shopping',
   retail: 'shopping', market: 'market', clothing: 'shopping', vintage: 'shopping',
+  // themed: before nature, so the partial match catches "theme parks" before the bare "park"
+  'theme park': 'themed', 'amusement park': 'themed', amusement: 'themed', character: 'themed',
   // nature
   nature: 'nature', park: 'nature', garden: 'nature', forest: 'nature', hiking: 'nature',
   waterfall: 'nature', mountain: 'nature', lake: 'nature', wildlife: 'nature',
@@ -152,7 +161,7 @@ const CATEGORY_TO_GROUP: Record<string, string> = {
   cafe: 'food', restaurant: 'food', streetfood: 'food', market: 'food',
   nature: 'nature', beach: 'nature',
   nightlife: 'nightlife',
-  shopping: 'landmarks', wellness: 'landmarks', accommodation: 'landmarks', other: 'landmarks',
+  shopping: 'landmarks', wellness: 'landmarks', accommodation: 'landmarks', themed: 'landmarks', other: 'landmarks',
 }
 
 export function getChipGroup(categoryKey: string): string {

@@ -5,6 +5,8 @@ import { motion } from 'framer-motion'
 import type { GeneratedItinerary, ItineraryDay, ItineraryTimeBlock, TravelCard, RealityReport, RealityMarks } from '@/lib/types'
 import { googleMapsUrl } from '@/lib/utils'
 import { dayReality } from '@/lib/reality'
+import { placedDays } from '@/lib/decide'
+import { useTripStore } from '@/lib/store'
 import { RealityStamp, PaceRibbon, DayRealityPanel } from './RealityPanel'
 import { Clock, MapPin, Utensils, Navigation, Info, Wallet } from 'lucide-react'
 
@@ -116,27 +118,33 @@ function dayBlocks(day: ItineraryDay): ItineraryTimeBlock[] {
 }
 
 /** Pick up to 2 photo prints for a day from the board's pinned cards */
-function pickPrints(day: ItineraryDay, dayIndex: number, cards: TravelCard[]): { card: TravelCard; time?: string }[] {
+const GENERIC_WORDS = new Set([
+  'temple', 'shrine', 'museum', 'garden', 'gardens', 'park', 'house', 'cafe', 'market', 'street',
+  'restaurant', 'station', 'tower', 'castle', 'japan', 'tokyo', 'kyoto', 'osaka', 'experience',
+])
+
+/** Up to two photos of places on this day: linked cards first, then name matches. Never another day's place */
+function pickPrints(day: ItineraryDay, cards: TravelCard[]): { card: TravelCard; time?: string }[] {
   const withImages = cards.filter((c) => c.imageUrl || c.thumbnailUrl)
-  if (!withImages.length) return []
-
   const blocks = dayBlocks(day)
-  const haystack = blocks.map((b) => `${b.place} ${b.activity}`.toLowerCase())
   const matched: { card: TravelCard; time?: string }[] = []
-
-  for (const card of withImages) {
-    if (matched.length >= 2) break
-    const tokens = (card.location.nameEnglish || card.title)
-      .toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 3)
-    const hit = haystack.findIndex((h) => tokens.some((t) => h.includes(t)))
-    if (hit >= 0) matched.push({ card, time: blocks[hit].time })
+  const add = (card: TravelCard, time?: string) => {
+    if (matched.length < 2 && !matched.some((m) => m.card.id === card.id)) matched.push({ card, time })
   }
-  // Fill from remaining image cards, cycled by day so each spread looks different
-  let cursor = dayIndex * 2
-  while (matched.length < 2 && matched.length < withImages.length) {
-    const candidate = withImages[cursor % withImages.length]
-    cursor++
-    if (!matched.some((m) => m.card.id === candidate.id)) matched.push({ card: candidate })
+
+  for (const b of blocks) {
+    const card = b.cardId ? withImages.find((c) => c.id === b.cardId) : undefined
+    if (card) add(card, b.time)
+  }
+  // Plans made before card links: every distinctive word of the name must be in one block ("Kenji-ji Temple" needs "kenji", not just "temple")
+  const haystack = blocks.map((b) => `${b.place} ${b.activity}`.toLowerCase())
+  for (const card of withImages) {
+    const tokens = (card.location.nameEnglish || card.title)
+      .toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 3 && !GENERIC_WORDS.has(t))
+      .map((t) => (t.length > 4 ? t.replace(/s$/, '') : t)) // "workshops" matches "workshop"
+    if (!tokens.length) continue
+    const hit = haystack.findIndex((h) => tokens.every((t) => h.includes(t)))
+    if (hit >= 0) add(card, blocks[hit].time)
   }
   return matched
 }
@@ -167,7 +175,14 @@ export function ItineraryBinder({
   const realities = itinerary.days.map((d) => dayReality(d, report, marks))
   const reality = realities[Math.min(activeDay, itinerary.days.length - 1)]
   const blocks = dayBlocks(day)
-  const prints = useMemo(() => pickPrints(day, activeDay, cards), [day, activeDay, cards])
+  const prints = useMemo(() => pickPrints(day, cards), [day, cards])
+  // Swap chips only for pins still on the board, not skipped since, and not already placed
+  const priorities = useTripStore((s) => s.pinPriorities[itinerary.tripId])
+  const unusedPins = useMemo(() => {
+    const placed = placedDays(itinerary)
+    return (itinerary.unusedPins ?? []).filter((name) => cards.some((c) =>
+      (c.location.nameEnglish || c.title) === name && !placed[c.id] && priorities?.[c.id] !== 'skip'))
+  }, [itinerary, cards, priorities])
 
   function submitRefine() {
     if (!refineText.trim() || refining) return
@@ -304,12 +319,12 @@ export function ItineraryBinder({
             )}
 
             {/* "If it fits" pins the plan left out: one tap swaps one into this day */}
-            {(itinerary.unusedPins?.length ?? 0) > 0 && (
+            {unusedPins.length > 0 && (
               <div style={{ marginTop: 22, maxWidth: 500 }}>
                 <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '.2em', color: 'rgba(201,168,76,.7)' }}>SAVED BUT NOT PLANNED</span>
                 <p style={{ margin: '4px 0 8px', fontSize: 11.5, color: cream(0.5) }}>Tap one to swap it into day {day.day} in place of its least important stop.</p>
                 <div className="flex flex-wrap" style={{ gap: 6 }}>
-                  {itinerary.unusedPins!.map((name) => (
+                  {unusedPins.map((name) => (
                     <button
                       key={name}
                       type="button"
