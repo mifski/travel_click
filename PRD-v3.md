@@ -160,3 +160,56 @@ Each phase ships on its own and builds on the one before.
 3. **3c: Discover (R6–R8).** Suggestions tray, gap prompts, margin notes. Depends on 3a (stamps are the preference signal) and 3b (gaps come from the strip).
 
 **Dependencies:** 3a builds on `feat/v2.2-reality-layer-ce1cbg` (PR #1: plan sheet, pin priorities, whole-trip sync), which should merge to `main` first. No new database column is needed.
+
+---
+
+## 9. Backlog from real-trip testing (TC-1 to TC-11) and design critique
+
+Source: the TC-1 to TC-11 tickets from planning the Osaka & Kyoto trip (Apr 2027), plus a design critique of that board and binder on 2026-10-27.
+
+### 9.1 What's already covered
+
+| Ticket | Already done | Still open |
+|---|---|---|
+| TC-1 Validate before showing | Flight times are fixed in code (`fitAroundFlights`); a rest block and an anchor are always added; fixing one day only rewrites that day (PR #1) | Opening hours and closed days by actual date; last trains; no "Fix now" for problems the generator caused itself |
+| TC-5 Preferences | Pace, start time, Classics↔Gems slider, must-go / if it fits / skip per pin (PR #1 + 3a) | Skip list by category, also applied to backups; cap on anchors per day; stay preferences; "why it didn't fit" for a must-go |
+| TC-7 Hotel per night | Stays per night with check-in and check-out; each day starts and ends at that night's stay (PR #1) | Map of each day; flag travel times that are unrealistic for the pace |
+| TC-9 Co-planning | Shared boards, live edits (PR #1) | A choice per traveller (want / fine / skip), "wanted by both", who changed what |
+| TC-11 Day view | Correct day shown; full titles (TC-11 fix) | Short timeline with details collapsed; each tip once; offline |
+
+### 9.2 Design critique findings that become requirements
+
+**R9. The plan comes first in the binder (P0, phase 3b).** On desktop, the day's first stop sits at 1,091 px (viewport 800); on a phone it's at 1,602 px. Reality Check findings, KEY FACTS and the pace ribbon all render above the plan.
+- [ ] The day's timeline starts within the first screen on desktop and right after the trip strip on a phone.
+- [ ] Reality Check findings collapse to one line under the stamp ("2 to fix, 1 to look at"), expanding on tap. KEY FACTS are collapsed by default.
+
+**R10. Compact day navigation (P0, phase 3b; replaces the full-title tabs).** Showing full titles made the 7 tabs 269 px tall on a phone. The R5 trip strip replaces the tabs: each luggage tag shows "Day 3 · Thu 15", plus the anchor in one line truncated with an ellipsis, with the full theme in the tag's tooltip and as the day's heading.
+
+**R11. Day photos come from that day (P0, quick fix).** Day 1 (arrival) shows a Kobe Herb Garden print, because `pickPrints` falls back to any card with a photo. Prints come from the day's `cardId` links first, then name matches, and the column stays empty instead of showing another day's place.
+
+**R12. No stale "Saved but not planned" chips (P0, quick fix).** The binder offered 20 unused pins for an 18-pin board, including pins deleted since the plan was made. Chips only show pins that are still on the board and still unplaced.
+
+**R13. Theme parks aren't nature (P0, quick fix, part of TC-8).** `park` → nature in `lib/categories.ts` also catches "theme park" (USJ is filed under Nature). Match "theme park" / "amusement" to a Character/Themed category before the generic `park` rule.
+
+**R14. Readable small text and touch targets (P1).** 26 labels are under 11 px (9 to 10.5 px captions, ticket labels, the boarding pass); stamp buttons are 25 px tall and the sticky note's delete button is 7×14 px.
+- [ ] Body and caption text are at least 11 px; uppercase labels at least 10 px with letter-spacing.
+- [ ] Every tap target is at least 32 px (44 px on phones), including stamps and the note delete button.
+
+**R15. Booking list reflects reality (P1, TC-4 without external data).** In the Osaka & Kyoto plan the list has 12 tickets: Saoto Kawaken appears three times, the already-booked SQ623 flight shows as "To book", and Kiyomizu-dera "timed entry" can't actually be booked.
+- [ ] Booked flights and stays come from Budget and Stays and show as booked, with a confirmation number field.
+- [ ] Duplicate venues merge into one ticket listing every day it applies to.
+- [ ] Every ticket shows how it's booked (official site / phone / walk-in); walk-in-only items are dropped.
+
+### 9.3 Revised phasing
+
+| Phase | Scope | Needs |
+|---|---|---|
+| **3a-fix: Quick fixes** | R11, R12, R13 | nothing; ships with PR #1 + 3a |
+| **3b: See** | R5 trip strip, R9 plan first, R10 compact navigation, the rest of TC-11 (collapsed timeline, each tip once) | nothing |
+| **3c: Decide better** | TC-5 skip list and anchor limit, TC-6 locks, TC-8 categories and pin editing, R14 | nothing |
+| **3d: Bookings** | R15 / TC-4 | nothing |
+| **3e: Trust** | TC-1 opening hours and closed days, TC-2 sourced facts with retrieval date, TC-3 transit | **Decision: which paid data sources** (places, transit) |
+| **3f: Discover** | R6 to R8 suggestions tray | 3b (gaps come from the strip) |
+| Later | TC-7 map, TC-9 per-traveller choices, TC-10 Google Sheets, TC-11 offline | maps provider, accounts, Google OAuth |
+
+**Blocking decision for 3e:** without real place and transit data, TC-1 can only re-check the AI's guesses, and TC-2 can show "not confirmed" but never a source. Until then, the rule from TC-2 applies now: **never show a placeholder value** ("075-XXX-XXXX"); show "not confirmed" instead.
